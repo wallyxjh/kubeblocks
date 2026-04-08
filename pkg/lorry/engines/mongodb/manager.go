@@ -174,7 +174,11 @@ func (mgr *Manager) IsClusterInitialized(ctx context.Context, cluster *dcs.Clust
 	}
 
 	err = errors.Cause(err)
-	if cmdErr, ok := err.(mongo.CommandError); ok && cmdErr.Name == "NotYetInitialized" {
+	if cmdErr, ok := err.(mongo.CommandError); ok && (cmdErr.Name == "NotYetInitialized" || cmdErr.Name == "Unauthorized") {
+		// NotYetInitialized: replica set has no config, fresh install scenario.
+		// Unauthorized: admin users exist (e.g. restored from backup) which disables
+		// the localhost exception, but the replica set is still not initialized.
+		// In both cases, we should proceed with rs.initiate().
 		return false, nil
 	}
 	mgr.Logger.Info("Get replSet status with local unauth client failed", "error", err)
