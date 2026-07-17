@@ -136,6 +136,7 @@ If you do not configure the BackupRepo information when installing KubeBlocks, y
      config:
        bucket: test-kb-backup
        endpoint: ""
+       forcePathStyle: "false"
        mountOptions: --memory-limit 1000 --dir-mode 0777 --file-mode 0666
        region: cn-northwest-1
      credential:
@@ -143,6 +144,11 @@ If you do not configure the BackupRepo information when installing KubeBlocks, y
        namespace: kb-system
    EOF
    ```
+
+   `forcePathStyle: "false"` uses virtual-hosted-style URLs such as
+   `https://<bucket>.<endpoint>/<object-key>`. Specify the service endpoint without
+   the bucket name. Set `forcePathStyle: "true"` when the S3-compatible service only
+   supports path-style URLs.
 
    </TabItem>
 
@@ -505,7 +511,7 @@ If the BackupRepo status shows Failed or remains in PreChecking for a long time,
 To troubleshoot:
 
 * Check whether configuration parameters, such as `endpoint`, `accessKeyId`, and `secretAccessKey`, are correctly specified.
-* For self-hosted object storage (e.g., Ceph Object Storage), try using `minio` as StorageProvider. The default `s3` StorageProvider uses a virtual hosting URL style, which some self-hosted storage may not support.
+* The `s3` StorageProvider uses virtual-hosted-style URLs by default. For self-hosted object storage that only supports path-style URLs, set `forcePathStyle: "true"` or use the `minio` StorageProvider.
 * If an `InvalidLocationConstraint` error occurs, check whether its parameter is correctly configured. If this error persists, leave the `region` parameter empty and try again.
 * If the status remains in the `PreChecking` state, check your network connection. Ensure the storage service is accessible from within the Kubernetes cluster. You can test this by running a Pod and connecting to the storage service using the corresponding client.
 * KubeBlocks uses [rclone](https://rclone.org/) internally for data transfer. Check whether rclone can successfully access the storage service.

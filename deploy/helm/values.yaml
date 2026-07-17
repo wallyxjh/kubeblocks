@@ -414,6 +414,7 @@ dataProtection:
 ## @param backupRepo.pvReclaimPolicy - the PV reclaim policy, options: [Retain, Delete]
 ## @param backupRepo.volumeCapacity - the capacity for creating PVC
 ## @param backupRepo.config - a key-value map containing the settings required by the storage provider
+## @param backupRepo.config.forcePathStyle - use path-style instead of virtual-hosted-style S3 URLs
 ## @param backupRepo.secrets - a key-value map containing the secret values required by the storage provider
 backupRepo:
   create: false
@@ -426,6 +427,7 @@ backupRepo:
     bucket: ""
     endpoint: ""
     region: ""
+    forcePathStyle: "false"
   secrets:
     accessKeyId: ""
     secretAccessKey: ""
