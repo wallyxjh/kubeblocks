@@ -47,10 +47,10 @@ func (mgr *Manager) GetReplicaRole(ctx context.Context, cluster *dcs.Cluster) (s
 		}
 	}
 	if role == models.MASTER {
-		return models.PRIMARY, nil
+		return mgr.observeRole(models.PRIMARY), nil
 	}
 	if role == models.SLAVE {
-		return models.SECONDARY, nil
+		return mgr.observeRole(models.SECONDARY), nil
 	}
 	return role, nil
 }
