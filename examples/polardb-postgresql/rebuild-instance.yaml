@@ -1,0 +1,12 @@
+apiVersion: apps.kubeblocks.io/v1alpha1
+kind: OpsRequest
+metadata:
+  name: polardb-pg-rebuild-standby
+spec:
+  clusterName: polardb-pg
+  type: RebuildInstance
+  rebuildFrom:
+    - componentName: postgresql
+      inPlace: true
+      instances:
+        - name: polardb-pg-postgresql-1

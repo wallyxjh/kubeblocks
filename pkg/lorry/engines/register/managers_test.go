@@ -216,3 +216,12 @@ func TestInitDBManager(t *testing.T) {
 		assert.Nil(t, err)
 	})
 }
+
+func TestPolarDBPostgreSQLRegistered(t *testing.T) {
+	assert.NotNil(t, GetManagerNewFunc(string(models.PolarDBPostgreSQL), "replication"))
+	assert.NotNil(t, GetManagerNewFunc(string(models.PolarDBPostgreSQL), ""))
+
+	commands, err := NewClusterCommands(string(models.PolarDBPostgreSQL))
+	assert.Nil(t, err)
+	assert.NotNil(t, commands)
+}
