@@ -140,6 +140,10 @@ func (h *componentReconcileEventHandler) enqueue(ctx context.Context, obj client
 // read only + watch access
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
 
+// component-owned disruption budgets
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;update;patch;delete;deletecollection
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets/finalizers,verbs=update
+
 // +kubebuilder:rbac:groups=apps.kubeblocks.io,resources=componentresourceconstraints,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps.kubeblocks.io,resources=opsrequests,verbs=get;list;watch;create
 

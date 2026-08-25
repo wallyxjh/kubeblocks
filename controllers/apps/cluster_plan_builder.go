@@ -58,6 +58,8 @@ const (
 	defaultWeight int = iota
 	workloadWeight
 	clusterWeight
+
+	polarDBPostgreSQLDirectReconcileMaxAttempts = 120
 )
 
 var directComponentReconcileInFlight sync.Map
@@ -301,7 +303,7 @@ func (c *clusterPlanBuilder) triggerComponentReconcile(comp *appsv1alpha1.Compon
 		}
 		req := ctrl.Request{NamespacedName: key}
 		nextDelay := time.Second
-		for attempt := 1; attempt <= 5; attempt++ {
+		for attempt := 1; attempt <= polarDBPostgreSQLDirectReconcileMaxAttempts; attempt++ {
 			timer := time.NewTimer(nextDelay)
 			<-timer.C
 
