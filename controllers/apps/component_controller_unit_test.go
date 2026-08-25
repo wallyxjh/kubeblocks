@@ -20,11 +20,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package apps
 
 import (
+	"context"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	appsv1alpha1 "github.com/apecloud/kubeblocks/apis/apps/v1alpha1"
+	workloads "github.com/apecloud/kubeblocks/apis/workloads/v1alpha1"
 	"github.com/apecloud/kubeblocks/pkg/constant"
 )
 
@@ -120,6 +123,79 @@ func TestIsIgnoredComponentPodUpdate(t *testing.T) {
 			tt.mutate(newPod)
 			if got := isIgnoredComponentPodUpdate(oldPod, newPod); got != tt.ignored {
 				t.Fatalf("isIgnoredComponentPodUpdate() = %v, want %v", got, tt.ignored)
+			}
+		})
+	}
+}
+
+func TestPolarDBPostgreSQLWorkloadEventHandler(t *testing.T) {
+	baseLabels := map[string]string{
+		constant.AppManagedByLabelKey:   constant.AppName,
+		constant.AppInstanceLabelKey:    "polardb-pg",
+		constant.KBAppComponentLabelKey: "postgresql",
+	}
+	makeLabels := func(extra map[string]string) map[string]string {
+		labels := map[string]string{}
+		for k, v := range baseLabels {
+			labels[k] = v
+		}
+		for k, v := range extra {
+			labels[k] = v
+		}
+		return labels
+	}
+
+	tests := []struct {
+		name      string
+		labels    map[string]string
+		wantCount int
+	}{
+		{
+			name: "enqueues component from component definition label",
+			labels: makeLabels(map[string]string{
+				constant.ComponentDefinitionLabelKey: "polardb-postgresql-ha",
+			}),
+			wantCount: 1,
+		},
+		{
+			name: "enqueues component from app component label",
+			labels: makeLabels(map[string]string{
+				constant.AppComponentLabelKey: "polardb-postgresql-ha",
+			}),
+			wantCount: 1,
+		},
+		{
+			name: "ignores non polardb postgresql workload",
+			labels: makeLabels(map[string]string{
+				constant.ComponentDefinitionLabelKey: "postgresql",
+			}),
+		},
+		{
+			name: "ignores workload without component labels",
+			labels: map[string]string{
+				constant.ComponentDefinitionLabelKey: string(appsv1alpha1.PolarDBPostgresqlBuiltinActionHandler),
+			},
+		},
+	}
+
+	r := &ComponentReconciler{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requests := r.polarDBPostgreSQLWorkloadEventHandler(context.Background(), &workloads.InstanceSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "polardb-pg-postgresql",
+					Namespace: "kb-polardb-pg",
+					Labels:    tt.labels,
+				},
+			})
+			if len(requests) != tt.wantCount {
+				t.Fatalf("polarDBPostgreSQLWorkloadEventHandler() returned %d requests, want %d", len(requests), tt.wantCount)
+			}
+			if tt.wantCount == 0 {
+				return
+			}
+			if got, want := requests[0].NamespacedName.String(), "kb-polardb-pg/polardb-pg-postgresql"; got != want {
+				t.Fatalf("polarDBPostgreSQLWorkloadEventHandler() request = %s, want %s", got, want)
 			}
 		})
 	}
