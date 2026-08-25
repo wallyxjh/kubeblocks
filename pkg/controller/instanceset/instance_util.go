@@ -196,7 +196,7 @@ func isRoleReady(pod *corev1.Pod, roles []workloads.ReplicaRole) bool {
 	return ok
 }
 
-// isImageMatched returns true if all container statuses have same image as defined in pod spec
+// isImageMatched returns true if all container statuses refer to the image defined in pod spec.
 func isImageMatched(pod *corev1.Pod) bool {
 	for _, container := range pod.Spec.Containers {
 		index := slices.IndexFunc(pod.Status.ContainerStatuses, func(status corev1.ContainerStatus) bool {
@@ -206,29 +206,44 @@ func isImageMatched(pod *corev1.Pod) bool {
 			continue
 		}
 		specImage := container.Image
-		statusImage := pod.Status.ContainerStatuses[index].Image
+		containerStatus := pod.Status.ContainerStatuses[index]
+		statusImage := containerStatus.Image
 		// Image in status may not match the image used in the PodSpec.
 		// More info: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodStatus
-		specName, specTag, specDigest := imageSplit(specImage)
-		statusName, statusTag, statusDigest := imageSplit(statusImage)
+		specName, specTag, specDigest := imageSplit(normalizeImageReference(specImage))
+		statusName, statusTag, statusDigest := imageSplit(normalizeImageReference(statusImage))
+		_, _, statusImageIDDigest := imageSplit(normalizeImageReference(containerStatus.ImageID))
+		if !imageNameMatched(specName, statusName) {
+			return false
+		}
 		// if digest presents in spec, it must be same in status
-		if len(specDigest) != 0 && specDigest != statusDigest {
+		if len(specDigest) != 0 && specDigest != statusDigest && specDigest != statusImageIDDigest {
 			return false
 		}
-		// if tag presents in spec, it must be same in status
-		if len(specTag) != 0 && specTag != statusTag {
+		// Runtime may report any tag associated with the resolved image ID. When no digest is
+		// available, keep the old strict tag check to avoid counting a stale image as ready.
+		if len(specTag) != 0 && len(statusTag) != 0 && specTag != statusTag &&
+			len(statusDigest) == 0 && len(statusImageIDDigest) == 0 {
 			return false
-		}
-		// otherwise, statusName should be same as or has suffix of specName
-		if specName != statusName {
-			specNames := strings.Split(specName, "/")
-			statusNames := strings.Split(statusName, "/")
-			if specNames[len(specNames)-1] != statusNames[len(statusNames)-1] {
-				return false
-			}
 		}
 	}
 	return true
+}
+
+func normalizeImageReference(imageName string) string {
+	if idx := strings.Index(imageName, "://"); idx >= 0 {
+		return imageName[idx+3:]
+	}
+	return imageName
+}
+
+func imageNameMatched(specName, statusName string) bool {
+	if specName == statusName {
+		return true
+	}
+	specNames := strings.Split(specName, "/")
+	statusNames := strings.Split(statusName, "/")
+	return specNames[len(specNames)-1] == statusNames[len(statusNames)-1]
 }
 
 // imageSplit separates and returns the name and tag parts
