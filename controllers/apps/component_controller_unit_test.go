@@ -200,3 +200,60 @@ func TestPolarDBPostgreSQLWorkloadEventHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldRequeuePendingPolarDBPostgreSQLComponent(t *testing.T) {
+	tests := []struct {
+		name string
+		comp *appsv1alpha1.Component
+		want bool
+	}{
+		{
+			name: "requeues polardb postgresql with empty phase",
+			comp: &appsv1alpha1.Component{
+				Spec: appsv1alpha1.ComponentSpec{
+					CompDef: "polardb-postgresql-ha",
+				},
+			},
+			want: true,
+		},
+		{
+			name: "requeues polardb postgresql while creating",
+			comp: &appsv1alpha1.Component{
+				Spec: appsv1alpha1.ComponentSpec{
+					CompDef: "polardb-postgresql-ha",
+				},
+				Status: appsv1alpha1.ComponentStatus{
+					Phase: appsv1alpha1.CreatingClusterCompPhase,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "stops after polardb postgresql is running",
+			comp: &appsv1alpha1.Component{
+				Spec: appsv1alpha1.ComponentSpec{
+					CompDef: "polardb-postgresql-ha",
+				},
+				Status: appsv1alpha1.ComponentStatus{
+					Phase: appsv1alpha1.RunningClusterCompPhase,
+				},
+			},
+		},
+		{
+			name: "ignores non polardb postgresql component",
+			comp: &appsv1alpha1.Component{
+				Spec: appsv1alpha1.ComponentSpec{
+					CompDef: "postgresql",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldRequeuePendingPolarDBPostgreSQLComponent(tt.comp); got != tt.want {
+				t.Fatalf("shouldRequeuePendingPolarDBPostgreSQLComponent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

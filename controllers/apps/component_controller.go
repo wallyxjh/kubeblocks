@@ -247,6 +247,9 @@ func (r *ComponentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if errBuild != nil {
 		return requeueError(errBuild)
 	}
+	if c, ok := planBuilder.(*componentPlanBuilder); ok && shouldRequeuePendingPolarDBPostgreSQLComponent(c.transCtx.Component) {
+		return intctrlutil.RequeueAfter(requeueDuration, reqCtx.Log, "wait PolarDB PostgreSQL component status")
+	}
 	return intctrlutil.Reconciled()
 }
 
@@ -423,6 +426,22 @@ func isPolarDBPostgreSQLComponent(comp *appsv1alpha1.Component) bool {
 		return true
 	}
 	return isPolarDBPostgreSQLCompDef(comp.GetLabels()[constant.ComponentDefinitionLabelKey])
+}
+
+func shouldRequeuePendingPolarDBPostgreSQLComponent(comp *appsv1alpha1.Component) bool {
+	if !isPolarDBPostgreSQLComponent(comp) || comp.GetDeletionTimestamp() != nil {
+		return false
+	}
+	switch comp.Status.Phase {
+	case appsv1alpha1.RunningClusterCompPhase,
+		appsv1alpha1.StoppedClusterCompPhase,
+		appsv1alpha1.FailedClusterCompPhase,
+		appsv1alpha1.AbnormalClusterCompPhase,
+		appsv1alpha1.DeletingClusterCompPhase:
+		return false
+	default:
+		return true
+	}
 }
 
 func (r *ComponentReconciler) clusterEventHandler(ctx context.Context, obj client.Object) []reconcile.Request {
