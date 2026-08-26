@@ -24,7 +24,7 @@ controls are in place.
 
 ## Release Images
 
-Use one immutable release tag for all KubeBlocks control-plane artifacts:
+Use one release tag for all KubeBlocks control-plane artifacts:
 
 ```text
 ghcr.io/<owner>/kubeblocks:<release>
@@ -36,9 +36,11 @@ ghcr.io/<owner>/kubeblocks-charts:<release>
 The `kubeblocks-charts` image contains the `polardb-postgresql` addon Chart.
 `.github/workflows/release-image.yml` builds and pushes all four images for a
 GitHub release; `.github/workflows/publish-ghcr-images.yml` publishes matching
-commit images after a default-branch merge. Production deployments must use a
-release tag, preferably recorded with its registry digest. `latest` and
-per-commit images are for development or CI only.
+commit images after a default-branch merge. A release tag is an operational
+immutability contract: publish it once, never republish it, and record its
+registry digest in the release and deployment change record. GHCR does not make
+tags immutable by default. Production deployments must use that released tag;
+`latest` and per-commit images are for development or CI only.
 
 If GHCR packages are private, grant the cluster pull access before installation:
 
@@ -53,9 +55,9 @@ kubectl -n kb-system patch serviceaccount kubeblocks-addon-installer \
 
 ## Install
 
-Set `OWNER` and `RELEASE` to the published image namespace and immutable release
-tag. The command installs the manager, tools, and charts image from the same
-release and creates the PolarDB PostgreSQL Addon definition.
+Set `OWNER` and `RELEASE` to the published image namespace and release tag. The
+command installs the manager, tools, and charts image from the same release and
+creates the PolarDB PostgreSQL Addon definition.
 
 ```bash
 OWNER=wallyxjh

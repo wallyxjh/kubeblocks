@@ -4,8 +4,13 @@ on:
   pull_request_target:
     types: [ edited, opened ]
 
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
 env:
-  GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+  GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
   pr-check:
