@@ -30,9 +30,11 @@ test ComponentDefinition with those defaults and with a switchover action that
 selects the healthy replica with the smallest Patroni lag when `instanceName: "*"`
 is used.
 
-Apply `backuppolicytemplate.yaml` to generate a KB dataprotection `BackupPolicy`
-for `polardb-postgresql-ha`. It reuses the PostgreSQL addon `postgres-basebackup`
-ActionSet and exposes `pg-basebackup` for backup and restore drills.
+The installable addon chart includes `polardb-postgresql-basebackup` and a
+default `BackupPolicyTemplate` for `polardb-postgresql-ha`. The standalone
+`backuppolicytemplate.yaml` in this directory is kept for patched KB 0.9 test
+environments that already have the PostgreSQL addon `postgres-basebackup`
+ActionSet installed.
 
 The example OpsRequests and drill script use the default test names:
 

@@ -1,0 +1,22 @@
+apiVersion: apps.kubeblocks.io/v1alpha1
+kind: ComponentVersion
+metadata:
+  name: polardb-postgresql
+  annotations:
+    componentversion.kubeblocks.io/compatible-definitions: polardb-postgresql-ha
+  labels:
+    polardb-postgresql-ha: polardb-postgresql-ha
+    {{- include "postgresql.labels" . | nindent 4 }}
+spec:
+  compatibilityRules:
+  - compDefs:
+    - polardb-postgresql-ha
+    releases:
+    - 12.15.0
+  releases:
+  - name: 12.15.0
+    serviceVersion: 12.15.0
+    images:
+      pg-init-container: {{ include "postgresql.image.major12.minor150" . }}
+      postgresql: {{ include "postgresql.image.major12.minor150" . }}
+      pgbouncer: {{ include "pgbouncer.image" . }}

@@ -517,6 +517,10 @@ endif
 KUBECTL=$(shell which kubectl)
 
 ##@ End-to-end (E2E) tests
+.PHONY: test-polardb-postgresql-ha
+test-polardb-postgresql-ha: helmtool kubectl ## Run PolarDB PostgreSQL HA drill on the current kube context.
+	bash test/e2e/polardb-postgresql-ha.sh
+
 .PHONY: render-smoke-testdata-manifests
 render-smoke-testdata-manifests: addonsPath=addons/addons
 render-smoke-testdata-manifests: fetch-addons ## Update E2E test dataset
