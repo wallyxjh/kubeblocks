@@ -481,6 +481,7 @@ autoInstalledAddons:
   - "llm"
   - "mongodb"
   - "mysql"
+  - "polardb-postgresql"
   - "postgresql"
   - "pulsar"
   - "qdrant"

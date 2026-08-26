@@ -34,7 +34,7 @@ Apply `backuppolicytemplate.yaml` to generate a KB dataprotection `BackupPolicy`
 for `polardb-postgresql-ha`. It reuses the PostgreSQL addon `postgres-basebackup`
 ActionSet and exposes `pg-basebackup` for backup and restore drills.
 
-The example OpsRequests use the default test names:
+The example OpsRequests and drill script use the default test names:
 
 - namespace: `kb-polardb-pg`
 - cluster: `polardb-pg`
@@ -53,6 +53,14 @@ Optional stages are disabled by default:
 
 ```bash
 WITH_REBUILD=true WITH_BACKUP=true \
+  bash examples/polardb-postgresql/ha/scripts/kb09-polardb-pg-ha-drill.sh
+```
+
+To let the drill apply and wait for the BackupPolicyTemplate before the
+backup/restore phase:
+
+```bash
+WITH_BACKUP=true APPLY_BACKUP_POLICY_TEMPLATE=true \
   bash examples/polardb-postgresql/ha/scripts/kb09-polardb-pg-ha-drill.sh
 ```
 
