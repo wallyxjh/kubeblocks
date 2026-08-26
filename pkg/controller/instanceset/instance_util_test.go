@@ -1446,10 +1446,37 @@ var _ = Describe("instance util test", func() {
 			}}
 			Expect(isImageMatched(pod)).Should(BeFalse())
 
-			By("tag not matches")
+			By("same digest with tag alias")
 			pod.Spec.Containers = []corev1.Container{{
 				Name:  name,
 				Image: "nginx:xxxx@0f37a86c04f8",
+			}}
+			pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+				Name:  name,
+				Image: "docker.io/nginx:latest@0f37a86c04f8",
+			}}
+			Expect(isImageMatched(pod)).Should(BeTrue())
+
+			By("tag alias reported with image ID digest")
+			pod.Spec.Containers = []corev1.Container{{
+				Name:  name,
+				Image: "ghcr.io/wallyxjh/kubeblocks-tools:polardb-pg-ha-handler-pr-b59e7b46a",
+			}}
+			pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+				Name:    name,
+				Image:   "ghcr.io/wallyxjh/kubeblocks-tools:codex-polardb-pg-ha-handler-pr-4fbca157f",
+				ImageID: "ghcr.io/wallyxjh/kubeblocks-tools@sha256:6882abea7099081c81f26fdcdb1d664467bc614ff89253f83501fad5fe9a5e72",
+			}}
+			Expect(isImageMatched(pod)).Should(BeTrue())
+
+			By("tag mismatch without digest evidence")
+			pod.Spec.Containers = []corev1.Container{{
+				Name:  name,
+				Image: "nginx:stable",
+			}}
+			pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+				Name:  name,
+				Image: "docker.io/nginx:latest",
 			}}
 			Expect(isImageMatched(pod)).Should(BeFalse())
 

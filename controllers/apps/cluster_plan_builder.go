@@ -242,6 +242,7 @@ func (c *clusterPlanBuilder) defaultWalkFuncWithLogging(vertex graph.Vertex) err
 	err := c.defaultWalkFunc(vertex)
 	switch {
 	case err == nil:
+		c.enqueueComponentReconcileEvent(node)
 		return err
 	case !ok:
 		c.transCtx.Logger.Error(err, "")
@@ -253,6 +254,23 @@ func (c *clusterPlanBuilder) defaultWalkFuncWithLogging(vertex graph.Vertex) err
 		c.transCtx.Logger.Error(err, fmt.Sprintf("%s %T error", *node.Action, node.Obj))
 	}
 	return err
+}
+
+func (c *clusterPlanBuilder) enqueueComponentReconcileEvent(node *model.ObjectVertex) {
+	if node == nil || node.Action == nil {
+		return
+	}
+	if *node.Action != model.CREATE && *node.Action != model.UPDATE && *node.Action != model.PATCH {
+		return
+	}
+	comp, ok := node.Obj.(*appsv1alpha1.Component)
+	if !ok || !isPolarDBPostgreSQLComponent(comp) {
+		return
+	}
+	if !enqueueComponentReconcileEvent(comp) {
+		c.transCtx.Logger.V(1).Info("component reconcile event channel is full", "component", client.ObjectKeyFromObject(comp))
+	}
+	c.transCtx.Logger.V(1).Info("enqueued component reconcile event", "component", client.ObjectKeyFromObject(comp), "action", *node.Action)
 }
 
 func (c *clusterPlanBuilder) defaultWalkFunc(vertex graph.Vertex) error {

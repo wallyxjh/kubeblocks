@@ -904,6 +904,24 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets/finalizers
+  verbs:
+  - update
+- apiGroups:
   - snapshot.storage.k8s.io
   resources:
   - volumesnapshotclasses
