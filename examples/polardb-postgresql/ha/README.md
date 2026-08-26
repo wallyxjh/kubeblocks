@@ -70,4 +70,6 @@ For backup/restore drills, ensure the KB dataprotection controller uses a
 pullable `DATASAFED_IMAGE`. In the KB 0.9 test environment this was set to
 `apecloud-registry.cn-zhangjiakou.cr.aliyuncs.com/apecloud/datasafed:0.2.0`.
 The drill creates temporary backups with `deletionPolicy: Delete` and cleans up
-the restore cluster by default.
+the restore cluster by default. The restore cluster name defaults to
+`restore-<timestamp>` to stay below Kubernetes label length limits; set
+`RESTORE_CLUSTER` only when you need a fixed drill name.

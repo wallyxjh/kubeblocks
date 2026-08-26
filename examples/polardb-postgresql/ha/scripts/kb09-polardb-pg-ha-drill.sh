@@ -188,7 +188,7 @@ apply_backup_restore_drill() {
   backup_name="${CLUSTER}-ha-drill-${stamp}"
   backup_ops="ha-drill-backup-${stamp}"
   restore_ops="ha-drill-restore-${stamp}"
-  restore_cluster="${CLUSTER}-restore-${stamp}"
+  restore_cluster="${RESTORE_CLUSTER:-restore-${stamp}}"
 
   kubectl apply -f - <<YAML
 apiVersion: apps.kubeblocks.io/v1alpha1
