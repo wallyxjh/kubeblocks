@@ -21,6 +21,10 @@ on:
         description: 'Image repository for kubeblocks-datascript (e.g. ghcr.io/labring/kubeblocks-datascript)'
         required: false
         default: ''
+      charts_image_repo:
+        description: 'Image repository for kubeblocks-charts (e.g. ghcr.io/labring/kubeblocks-charts)'
+        required: false
+        default: ''
   release:
     types:
       - published
@@ -78,6 +82,10 @@ jobs:
             dockerfile: ./docker/Dockerfile-datascript
             context: .
             image_repo: ${{ inputs.datascript_image_repo != '' && inputs.datascript_image_repo || format('ghcr.io/{0}/kubeblocks-datascript', github.repository_owner) }}
+          - image: kubeblocks-charts
+            dockerfile: ./docker/Dockerfile-charts
+            context: .
+            image_repo: ${{ inputs.charts_image_repo != '' && inputs.charts_image_repo || format('ghcr.io/{0}/kubeblocks-charts', github.repository_owner) }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up QEMU

@@ -24,6 +24,23 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 
 {{/*
+The ComponentDefinition name identifies an immutable HA implementation. All
+definition-scoped resources use this prefix so releases can retain an older
+definition while new clusters use the next one.
+*/}}
+{{- define "polardbPostgresql.componentDefinitionName" -}}
+{{- $name := required "ha.componentDefinition.name is required" .Values.ha.componentDefinition.name -}}
+{{- if gt (len $name) 35 -}}
+{{- fail "ha.componentDefinition.name must be 35 characters or fewer" -}}
+{{- end -}}
+{{- $name -}}
+{{- end }}
+
+{{- define "polardbPostgresql.componentResourceName" -}}
+{{- printf "%s-%s" (include "polardbPostgresql.componentDefinitionName" .) .suffix | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "postgresql.chart" -}}

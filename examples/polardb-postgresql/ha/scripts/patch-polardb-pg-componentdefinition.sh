@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-COMPONENT_DEFINITION="${COMPONENT_DEFINITION:-polardb-postgresql-ha}"
+COMPONENT_DEFINITION="${COMPONENT_DEFINITION:-polardb-postgresql-ha-v1}"
 PGDATA_PATH="${PGDATA_PATH:-/home/postgres/pgdata/pgroot/data}"
+MAX_SWITCHOVER_LAG_BYTES="${MAX_SWITCHOVER_LAG_BYTES:-0}"
 
 src="$(mktemp)"
 tmp="$(mktemp)"
@@ -12,12 +13,15 @@ cleanup() {
 trap cleanup EXIT
 
 kubectl get componentdefinition "${COMPONENT_DEFINITION}" -o json > "${src}"
-python3 - "${PGDATA_PATH}" "${src}" > "${tmp}" <<'PY'
+python3 - "${PGDATA_PATH}" "${MAX_SWITCHOVER_LAG_BYTES}" "${src}" > "${tmp}" <<'PY'
 import json
 import sys
 
 pgdata_path = sys.argv[1]
-source_path = sys.argv[2]
+max_switchover_lag_bytes = int(sys.argv[2])
+source_path = sys.argv[3]
+if max_switchover_lag_bytes < 0:
+    raise SystemExit("MAX_SWITCHOVER_LAG_BYTES must be greater than or equal to zero")
 with open(source_path, "r", encoding="utf-8") as source:
     obj = json.load(source)
 
@@ -64,7 +68,7 @@ curl -fsS -XPOST "${endpoint}/switchover" -d "${payload}"
 without_candidate = r'''set -euo pipefail
 endpoint="http://${KB_REPLICATION_PRIMARY_POD_FQDN}:8008"
 payload="$(
-  PATRONI_ENDPOINT="${endpoint}" python3 - <<'PY2'
+  PATRONI_ENDPOINT="${endpoint}" MAX_SWITCHOVER_LAG_BYTES="''' + '" + str(max_switchover_lag_bytes) + "' + r'''" python3 - <<'PY2'
 import json
 import os
 import sys
@@ -72,6 +76,7 @@ import urllib.request
 
 endpoint = os.environ["PATRONI_ENDPOINT"]
 leader = os.environ["KB_REPLICATION_PRIMARY_POD_NAME"]
+max_lag = int(os.environ["MAX_SWITCHOVER_LAG_BYTES"])
 with urllib.request.urlopen(endpoint + "/cluster", timeout=5) as resp:
     cluster = json.load(resp)
 
@@ -89,10 +94,12 @@ for member in cluster.get("members", []):
         lag = int(lag)
     except (TypeError, ValueError):
         lag = 9223372036854775807
+    if lag > max_lag:
+        continue
     candidates.append((lag, name))
 
 if not candidates:
-    raise SystemExit("no healthy Patroni replica candidate found")
+    raise SystemExit(f"no healthy Patroni replica candidate within {max_lag} bytes of lag")
 
 candidate = sorted(candidates)[0][1]
 print(json.dumps({"leader": leader, "candidate": candidate}))

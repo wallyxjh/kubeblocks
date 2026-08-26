@@ -41,6 +41,9 @@ jobs:
           - image: kubeblocks-datascript
             dockerfile: ./docker/Dockerfile-datascript
             context: .
+          - image: kubeblocks-charts
+            dockerfile: ./docker/Dockerfile-charts
+            context: .
 
     steps:
       - name: Checkout

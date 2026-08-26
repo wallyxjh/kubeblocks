@@ -5,12 +5,12 @@ metadata:
   annotations:
     dataprotection.kubeblocks.io/is-default-policy-template: "true"
   labels:
-    polardb-postgresql-ha: polardb-postgresql-ha
+    polardb-postgresql-ha-v1: polardb-postgresql-ha-v1
     service-kind/postgresql: "true"
 spec:
   backupPolicies:
   - componentDefs:
-    - polardb-postgresql-ha
+    - polardb-postgresql-ha-v1
     target:
       account: postgres
       fallbackRole: primary
@@ -24,7 +24,7 @@ spec:
         valueFrom:
           componentDef:
           - names:
-            - polardb-postgresql-ha
+            - polardb-postgresql-ha-v1
             mappingValue: 12.15.0-pgvector-v0.6.1
       targetVolumes:
         volumeMounts:

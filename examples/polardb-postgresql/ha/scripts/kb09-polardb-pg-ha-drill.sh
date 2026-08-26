@@ -4,7 +4,7 @@ set -euo pipefail
 NAMESPACE="${NAMESPACE:-kb-polardb-pg}"
 CLUSTER="${CLUSTER:-polardb-pg}"
 COMPONENT="${COMPONENT:-postgresql}"
-COMPONENT_DEFINITION="${COMPONENT_DEFINITION:-polardb-postgresql-ha}"
+COMPONENT_DEFINITION="${COMPONENT_DEFINITION:-polardb-postgresql-ha-v1}"
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-900}"
 WITH_REBUILD="${WITH_REBUILD:-false}"
 WITH_BACKUP="${WITH_BACKUP:-false}"
@@ -62,6 +62,15 @@ role_pod() {
   kubectl get pod -n "${NAMESPACE}" \
     -l "app.kubernetes.io/instance=${CLUSTER},apps.kubeblocks.io/component-name=${COMPONENT},kubeblocks.io/role=${role}" \
     -o jsonpath='{.items[0].metadata.name}'
+}
+
+verify_demoted_replica() {
+  local pod="$1"
+  local in_recovery
+  in_recovery="$(kubectl exec -n "${NAMESPACE}" "${pod}" -c postgresql -- \
+    sh -ec 'psql -Atq -U "${POSTGRES_USER}" -h 127.0.0.1 -d postgres -c "SELECT pg_is_in_recovery()"')"
+  [ "${in_recovery}" = "t" ] ||
+    die "old primary ${pod} is not a Patroni recovery replica after switchover"
 }
 
 verify_component_definition() {
@@ -269,6 +278,7 @@ new_primary="$(role_pod primary)"
 [ "${new_primary}" != "${old_primary}" ] || die "switchover did not move primary from ${old_primary}"
 log "new primary: ${new_primary}"
 
+verify_demoted_replica "${old_primary}"
 log "fencing old primary through HorizontalScaling/offlineInstances"
 apply_fence "${old_primary}"
 wait_for "fenced pod ${old_primary} deleted" \

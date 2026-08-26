@@ -12,7 +12,7 @@ The operational model is:
 - Backup: `OpsRequest.spec.type=Backup`.
 - Restore drill: `OpsRequest.spec.type=Restore` to create a drill cluster from a completed backup.
 
-For the Patroni-based `polardb-postgresql-ha` component definition, lorry must not
+For the Patroni-based `polardb-postgresql-ha-v1` component definition, lorry must not
 run a second HA controller. The manager image in this branch injects
 `KB_ENABLE_HA=false` for the `polardb-postgresql` builtin handler by default. The
 component definition should also set:
@@ -30,8 +30,8 @@ test ComponentDefinition with those defaults and with a switchover action that
 selects the healthy replica with the smallest Patroni lag when `instanceName: "*"`
 is used.
 
-The installable addon chart includes `polardb-postgresql-basebackup` and a
-default `BackupPolicyTemplate` for `polardb-postgresql-ha`. The standalone
+The installable addon chart includes `polardb-postgresql-ha-v1-basebackup` and a
+default `BackupPolicyTemplate` for `polardb-postgresql-ha-v1`. The standalone
 `backuppolicytemplate.yaml` in this directory is kept for patched KB 0.9 test
 environments that already have the PostgreSQL addon `postgres-basebackup`
 ActionSet installed.

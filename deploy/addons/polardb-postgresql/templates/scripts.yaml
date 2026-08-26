@@ -1,7 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: polardb-postgresql-scripts
+  name: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "scripts" "Values" .Values) }}
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
     {{- include "postgresql.labels" . | nindent 4 }}
 data:

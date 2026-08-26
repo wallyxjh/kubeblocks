@@ -42,6 +42,7 @@ image:
   ## Set to true if you would like to see extra information on logs
   ##
   debug: false
+
 ## Authentication parameters
 ##
 auth:
@@ -139,6 +140,17 @@ logConfigs:
 ##   --set enabledClusterVersions={}   # this will disable all cluster versions, the enabledClusterVersions has an empty
 ##                                     # value and the length is 1
 enabledClusterVersions: [ ]
+
+ha:
+  # ComponentDefinitions are immutable in KubeBlocks 0.9. Increment this name
+  # for an incompatible HA implementation; do not update an existing definition
+  # in place.
+  componentDefinition:
+    name: polardb-postgresql-ha-v1
+  switchover:
+    # Only replicas at or below this Patroni-reported byte lag can be selected
+    # automatically. Keep the production default at zero to avoid an RPO gap.
+    maxLagBytes: 0
 
 prometheusRule:
   enabled: false

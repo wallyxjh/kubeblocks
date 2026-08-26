@@ -1,10 +1,11 @@
 apiVersion: dataprotection.kubeblocks.io/v1alpha1
 kind: ActionSet
 metadata:
-  name: polardb-postgresql-basebackup
+  name: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "basebackup" "Values" .Values) }}
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
-    clusterdefinition.kubeblocks.io/name: polardb-postgresql
-    polardb-postgresql-ha: polardb-postgresql-ha
+    {{ include "polardbPostgresql.componentDefinitionName" . }}: {{ include "polardbPostgresql.componentDefinitionName" . }}
     {{- include "postgresql.labels" . | nindent 4 }}
 spec:
   backupType: Full

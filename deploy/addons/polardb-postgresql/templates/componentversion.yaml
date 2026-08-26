@@ -1,16 +1,17 @@
 apiVersion: apps.kubeblocks.io/v1alpha1
 kind: ComponentVersion
 metadata:
-  name: polardb-postgresql
+  name: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "version" "Values" .Values) }}
   annotations:
-    componentversion.kubeblocks.io/compatible-definitions: polardb-postgresql-ha
+    componentversion.kubeblocks.io/compatible-definitions: {{ include "polardbPostgresql.componentDefinitionName" . }}
+    helm.sh/resource-policy: keep
   labels:
-    polardb-postgresql-ha: polardb-postgresql-ha
+    {{ include "polardbPostgresql.componentDefinitionName" . }}: {{ include "polardbPostgresql.componentDefinitionName" . }}
     {{- include "postgresql.labels" . | nindent 4 }}
 spec:
   compatibilityRules:
   - compDefs:
-    - polardb-postgresql-ha
+    - {{ include "polardbPostgresql.componentDefinitionName" . }}
     releases:
     - 12.15.0
   releases:

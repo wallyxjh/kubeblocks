@@ -77,7 +77,9 @@ def main(filename):
         local_config['bootstrap']['dcs'] = {}
     if os.path.exists('/home/postgres/conf/patroni.yaml'):
         with open('/home/postgres/conf/patroni.yaml', 'r') as f:
-            local_config['bootstrap']['dcs'].update(yaml.safe_load(f))
+            # The optional ConfigMap key can exist with no Patroni overrides.
+            # yaml.safe_load returns None for an empty document.
+            local_config['bootstrap']['dcs'].update(yaml.safe_load(f) or {})
     else:
         print('patroni.yaml not found')
     write_file(yaml.dump(local_config, default_flow_style=False), filename, True)

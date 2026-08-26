@@ -2,14 +2,16 @@
 apiVersion: apps.kubeblocks.io/v1beta1
 kind: ConfigConstraint
 metadata:
-  name: polardb-postgresql12-cc
+  name: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "postgresql12-cc" "Values" .Values) }}
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
     {{- include "postgresql.labels" . | nindent 4 }}
 spec:
   reloadAction:
     tplScriptTrigger:
       sync: true
-      scriptConfigMapRef: polardb-postgresql-patroni-reload-script
+      scriptConfigMapRef: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "patroni-reload-script" "Values" .Values) }}
       namespace: {{ .Release.Namespace }}
     ## update patroni master
     targetPodSelector:

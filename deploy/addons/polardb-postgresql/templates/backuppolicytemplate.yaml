@@ -1,31 +1,32 @@
 apiVersion: apps.kubeblocks.io/v1alpha1
 kind: BackupPolicyTemplate
 metadata:
-  name: polardb-postgresql-backup-policy-template
+  name: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "backup-policy-template" "Values" .Values) }}
   annotations:
     dataprotection.kubeblocks.io/is-default-policy-template: "true"
+    helm.sh/resource-policy: keep
   labels:
-    polardb-postgresql-ha: polardb-postgresql-ha
+    {{ include "polardbPostgresql.componentDefinitionName" . }}: {{ include "polardbPostgresql.componentDefinitionName" . }}
     service-kind/postgresql: "true"
     {{- include "postgresql.labels" . | nindent 4 }}
 spec:
   backupPolicies:
   - componentDefs:
-    - polardb-postgresql-ha
+    - {{ include "polardbPostgresql.componentDefinitionName" . }}
     target:
       account: postgres
       fallbackRole: primary
       role: secondary
     backupMethods:
     - name: pg-basebackup
-      actionSetName: polardb-postgresql-basebackup
+      actionSetName: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "basebackup" "Values" .Values) }}
       snapshotVolumes: false
       envMapping:
       - key: IMAGE_TAG
         valueFrom:
           componentDef:
           - names:
-            - polardb-postgresql-ha
+            - {{ include "polardbPostgresql.componentDefinitionName" . }}
             mappingValue: {{ .Values.image.tags.major12.minor150 | quote }}
       targetVolumes:
         volumeMounts:

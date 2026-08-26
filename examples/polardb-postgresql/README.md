@@ -3,6 +3,9 @@
 This directory contains KubeBlocks 0.9 examples for running PolarDB PostgreSQL
 with the KB-native production HA workflow.
 
+For the production installation, upgrade policy, image policy, and HA boundary,
+read [PolarDB PostgreSQL HA for KubeBlocks 0.9](../../docs/polardb-postgresql-ha.md).
+
 This branch includes an installable addon chart at
 `deploy/addons/polardb-postgresql`. The KubeBlocks charts image packaging script
 also packages it as `polardb-postgresql-0.9.3.tgz`, so KB 0.9 environments can
@@ -10,7 +13,7 @@ install the engine either directly with Helm or through the configured addon
 chart image.
 
 The current KB 0.9 integration expects a Patroni-based ComponentDefinition named
-`polardb-postgresql-ha`. The controller-side adapter in this branch disables
+`polardb-postgresql-ha-v1`. The controller-side adapter in this branch disables
 lorry's built-in HA loop for the `polardb-postgresql` builtin handler, so Patroni
 remains the only database HA controller while KubeBlocks drives lifecycle Ops.
 
@@ -26,11 +29,11 @@ kubectl get cluster,pod -n kb-polardb-pg
 ```
 
 The example creates a two-replica component named `postgresql` from
-`polardb-postgresql-ha`.
+`polardb-postgresql-ha-v1`.
 
 ## Enable HA Backup Policy
 
-The addon chart installs `polardb-postgresql-backup-policy-template`, which
+The addon chart installs `polardb-postgresql-ha-v1-backup-policy-template`, which
 registers `pg-basebackup` for PolarDB PostgreSQL clusters. If you are patching an
 existing test environment without installing the chart, apply the standalone
 template:

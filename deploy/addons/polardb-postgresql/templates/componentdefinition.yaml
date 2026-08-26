@@ -1,9 +1,15 @@
+{{- $maxSwitchoverLagBytes := int .Values.ha.switchover.maxLagBytes -}}
+{{- if lt $maxSwitchoverLagBytes 0 -}}
+{{- fail "ha.switchover.maxLagBytes must be greater than or equal to zero" -}}
+{{- end -}}
 apiVersion: apps.kubeblocks.io/v1alpha1
 kind: ComponentDefinition
 metadata:
-  name: polardb-postgresql-ha
+  name: {{ include "polardbPostgresql.componentDefinitionName" . }}
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
-    polardb-postgresql-ha: polardb-postgresql-ha
+    {{ include "polardbPostgresql.componentDefinitionName" . }}: {{ include "polardbPostgresql.componentDefinitionName" . }}
     {{- include "postgresql.labels" . | nindent 4 }}
 spec:
   provider: kubeblocks
@@ -46,8 +52,8 @@ spec:
     scrapePath: /metrics
   configs:
     - name: postgresql-configuration
-      templateRef: polardb-postgresql12-configuration
-      constraintRef: polardb-postgresql12-cc
+      templateRef: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "postgresql12-configuration" "Values" .Values) }}
+      constraintRef: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "postgresql12-cc" "Values" .Values) }}
       keys:
         - postgresql.conf
       namespace: {{ .Release.Namespace }}
@@ -55,21 +61,21 @@ spec:
       defaultMode: 0444
       reRenderResourceTypes:
         - vscale
-    - name: polardb-postgresql-pgbouncer-configuration
-      templateRef: polardb-postgresql-pgbouncer-configuration
+    - name: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "pgbouncer-configuration" "Values" .Values) }}
+      templateRef: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "pgbouncer-configuration" "Values" .Values) }}
       keys:
         - pgbouncer.ini
       namespace: {{ .Release.Namespace }}
       volumeName: pgbouncer-config
       defaultMode: 0777
     - name: postgresql-custom-metrics
-      templateRef: polardb-postgresql12-custom-metrics
+      templateRef: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "postgresql12-custom-metrics" "Values" .Values) }}
       namespace: {{ .Release.Namespace }}
       volumeName: postgresql-custom-metrics
       defaultMode: 0444
   scripts:
-    - name: polardb-postgresql-scripts
-      templateRef: polardb-postgresql-scripts
+    - name: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "scripts" "Values" .Values) }}
+      templateRef: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "scripts" "Values" .Values) }}
       namespace: {{ .Release.Namespace }}
       volumeName: scripts
       defaultMode: 0555
@@ -137,13 +143,14 @@ spec:
               set -euo pipefail
               endpoint="http://${KB_REPLICATION_PRIMARY_POD_FQDN}:8008"
               payload="$(
-                PATRONI_ENDPOINT="${endpoint}" python3 - <<'PY'
+                PATRONI_ENDPOINT="${endpoint}" MAX_SWITCHOVER_LAG_BYTES="{{ $maxSwitchoverLagBytes }}" python3 - <<'PY'
               import json
               import os
               import urllib.request
 
               endpoint = os.environ["PATRONI_ENDPOINT"]
               leader = os.environ["KB_REPLICATION_PRIMARY_POD_NAME"]
+              max_lag = int(os.environ["MAX_SWITCHOVER_LAG_BYTES"])
               with urllib.request.urlopen(endpoint + "/cluster", timeout=5) as resp:
                   cluster = json.load(resp)
 
@@ -161,10 +168,12 @@ spec:
                       lag = int(lag)
                   except (TypeError, ValueError):
                       lag = 9223372036854775807
+                  if lag > max_lag:
+                      continue
                   candidates.append((lag, name))
 
               if not candidates:
-                  raise SystemExit("no healthy Patroni replica candidate found")
+                  raise SystemExit(f"no healthy Patroni replica candidate within {max_lag} bytes of lag")
 
               candidate = sorted(candidates)[0][1]
               print(json.dumps({"leader": leader, "candidate": candidate}))
@@ -391,14 +400,14 @@ spec:
     - name: POSTGRES_USER
       valueFrom:
         credentialVarRef:
-          compDef: polardb-postgresql-ha
+          compDef: {{ include "polardbPostgresql.componentDefinitionName" . }}
           name: postgres
           optional: false
           username: Required
     - name: POSTGRES_PASSWORD
       valueFrom:
         credentialVarRef:
-          compDef: polardb-postgresql-ha
+          compDef: {{ include "polardbPostgresql.componentDefinitionName" . }}
           name: postgres
           optional: false
           password: Required

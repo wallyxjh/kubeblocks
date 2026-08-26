@@ -7,7 +7,7 @@ spec:
   terminationPolicy: Delete
   componentSpecs:
   - name: postgresql
-    componentDef: polardb-postgresql-ha
+    componentDef: polardb-postgresql-ha-v1
     replicas: 2
     disableExporter: true
     affinity:

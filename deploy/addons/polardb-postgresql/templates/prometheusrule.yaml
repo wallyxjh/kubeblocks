@@ -2,18 +2,20 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: polardb-postgresql-ha-rules
+  name: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "rules" "Values" .Values) }}
+  annotations:
+    helm.sh/resource-policy: keep
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "postgresql.labels" . | nindent 4 }}
 spec:
   groups:
-  - name: polardb-postgresql-ha
+  - name: {{ include "polardbPostgresql.componentDefinitionName" . }}
     rules:
     - alert: PolarDBPostgreSQLNoPrimary
       expr: |
         sum by (namespace, app_kubernetes_io_instance) (
-          pg_replication_is_master{app_kubernetes_io_name="polardb-postgresql-ha"}
+          pg_replication_is_master{app_kubernetes_io_name="{{ include "polardbPostgresql.componentDefinitionName" . }}"}
         ) != 1
       for: 1m
       labels:
@@ -24,7 +26,7 @@ spec:
     - alert: PolarDBPostgreSQLReplicationLag
       expr: |
         max by (namespace, app_kubernetes_io_instance, pod) (
-          max_over_time(pg_replication_lag{app_kubernetes_io_name="polardb-postgresql-ha"}[2m])
+          max_over_time(pg_replication_lag{app_kubernetes_io_name="{{ include "polardbPostgresql.componentDefinitionName" . }}"}[2m])
         ) > {{ .Values.prometheusRule.replicationLagSeconds }}
       for: 2m
       labels:
