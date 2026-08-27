@@ -90,7 +90,10 @@ jobs:
 
   make-test:
     needs: trigger-mode
-    runs-on: [self-hosted, gke-runner-go1.21]
+    # The former self-hosted runner is not provisioned reliably.  Use the
+    # maintained GitHub-hosted image so the required full test gate can run.
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
     if: contains(needs.trigger-mode.outputs.trigger-mode, '[test]')
     outputs:
       runner-name: ${{ steps.get_runner_name.outputs.runner_name }}
