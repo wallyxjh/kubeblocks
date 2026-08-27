@@ -453,18 +453,16 @@ else
 GOLANGCILINT=$(GOBIN)/golangci-lint
 endif
 
+STATICCHECK_VERSION ?= v0.4.7
+STATICCHECK = $(GOBIN)/staticcheck
+
 .PHONY: staticchecktool
-staticchecktool: ## Download staticcheck locally if necessary.
-ifeq (, $(shell which staticcheck))
-	@{ \
-	set -e ;\
-	echo 'installing honnef.co/go/tools/cmd/staticcheck' ;\
-	go install honnef.co/go/tools/cmd/staticcheck@latest;\
-	}
-STATICCHECK=$(GOBIN)/staticcheck
-else
-STATICCHECK=$(shell which staticcheck)
-endif
+staticchecktool: ## Download the pinned staticcheck version if necessary.
+	@if ! test -x "$(STATICCHECK)" || ! "$(STATICCHECK)" -version | grep -Fq "$(STATICCHECK_VERSION)"; then \
+		set -e; \
+		echo 'installing honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)'; \
+		$(GO) install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION); \
+	fi
 
 .PHONY: goimportstool
 goimportstool: ## Download goimports locally if necessary.

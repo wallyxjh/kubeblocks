@@ -482,37 +482,6 @@ func checkDeploymentReady(opts RunOptions, ns, name string) bool {
 		dep.Status.UnavailableReplicas == 0
 }
 
-// checkAllPhases lists resources via `kubectl get <getArgs> -o json`,
-// applies optional name filter, and returns true when every item's phase is in expected.
-func checkAllPhases(opts RunOptions, getArgs []string, filter func(string) bool, expected map[string]bool) bool {
-	args := make([]string, 0, len(getArgs)+3)
-	args = append(args, "get")
-	args = append(args, getArgs...)
-	args = append(args, "-o", "json")
-	out := kubectlIgnoreError(opts, args...)
-	if out == "" {
-		return true
-	}
-	var list struct {
-		Items []struct {
-			Metadata struct{ Name string }  `json:"metadata"`
-			Status   struct{ Phase string } `json:"status"`
-		} `json:"items"`
-	}
-	if err := json.Unmarshal([]byte(out), &list); err != nil {
-		return false
-	}
-	for _, item := range list.Items {
-		if filter != nil && !filter(item.Metadata.Name) {
-			continue
-		}
-		if !expected[item.Status.Phase] {
-			return false
-		}
-	}
-	return true
-}
-
 const clusterDefLabelKey = "clusterdefinition.kubeblocks.io/name"
 
 // clusterMatchesType checks spec.clusterDefinitionRef or the well-known label
@@ -526,39 +495,6 @@ func clusterMatchesType(clusterDefRef string, labels map[string]string, dbType s
 		return true
 	}
 	return false
-}
-
-func checkAllClustersPhase(opts RunOptions, dbType string) bool {
-	out := kubectlIgnoreError(opts, "get", "cluster", "-A", "-o", "json")
-	if out == "" {
-		return true
-	}
-	var list struct {
-		Items []struct {
-			Metadata struct {
-				Name   string            `json:"name"`
-				Labels map[string]string `json:"labels"`
-			} `json:"metadata"`
-			Spec struct {
-				ClusterDefinitionRef string `json:"clusterDefinitionRef"`
-			} `json:"spec"`
-			Status struct {
-				Phase string `json:"phase"`
-			} `json:"status"`
-		} `json:"items"`
-	}
-	if err := json.Unmarshal([]byte(out), &list); err != nil {
-		return false
-	}
-	for _, item := range list.Items {
-		if !clusterMatchesType(item.Spec.ClusterDefinitionRef, item.Metadata.Labels, dbType) {
-			continue
-		}
-		if !clusterTerminalPhases[item.Status.Phase] {
-			return false
-		}
-	}
-	return true
 }
 
 // getHelmChartVersion returns the chart field (e.g. "kubeblocks-0.9.3") for a helm release, or "".

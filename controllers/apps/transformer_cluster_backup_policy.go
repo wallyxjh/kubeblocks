@@ -820,18 +820,6 @@ func defaultBackupMethodByCompDefName(compDefName string) string {
 	}
 }
 
-func hasBackupMethod(backupPolicy *dpv1alpha1.BackupPolicy, method string) bool {
-	if backupPolicy == nil || method == "" {
-		return false
-	}
-	for _, m := range backupPolicy.Spec.BackupMethods {
-		if m.Name == method {
-			return true
-		}
-	}
-	return false
-}
-
 func builtinHandlerFromLifecycleActions(actions *appsv1alpha1.ComponentLifecycleActions) appsv1alpha1.BuiltinActionHandlerType {
 	if actions == nil {
 		return ""
