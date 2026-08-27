@@ -170,7 +170,6 @@ jobs:
       GO_VERSION: "1.21"
       BUILDX_PLATFORMS: "linux/amd64"
       DOCKERFILE_PATH: "./docker/Dockerfile"
-    secrets: inherit
 
   check-tools-image:
     permissions:
@@ -185,7 +184,6 @@ jobs:
       GO_VERSION: "1.21"
       BUILDX_PLATFORMS: "linux/amd64"
       DOCKERFILE_PATH: "./docker/Dockerfile-tools"
-    secrets: inherit
 
   check-datascript-image:
     permissions:
@@ -198,7 +196,6 @@ jobs:
       IMG: "apecloud/kubeblocks-datascript"
       BUILDX_PLATFORMS: "linux/amd64"
       DOCKERFILE_PATH: "./docker/Dockerfile-datascript"
-    secrets: inherit
 
   check-dataprotection-image:
     permissions:
@@ -211,7 +208,6 @@ jobs:
       IMG: "apecloud/kubeblocks-dataprotection"
       BUILDX_PLATFORMS: "linux/amd64"
       DOCKERFILE_PATH: "./docker/Dockerfile-dataprotection"
-    secrets: inherit
 
   check-helm:
     needs: trigger-mode
@@ -225,7 +221,6 @@ jobs:
       APECD_REF: "v0.1.43"
       MAKE_OPS_POST: "install"
       GO_VERSION: "1.21"
-    secrets: inherit
 
   deploy-kubeblocks-io:
     needs: trigger-mode
@@ -236,7 +231,6 @@ jobs:
       BRANCH_NAME: "master"
       WORKFLOW_ID: "deploy.yml"
       APECD_REF: "v0.1.0"
-    secrets: inherit
 
   deploy-cn-kubeblocks-io:
     needs: trigger-mode
@@ -247,4 +241,3 @@ jobs:
       BRANCH_NAME: "master"
       WORKFLOW_ID: "deploy.yml"
       APECD_REF: "v0.1.43"
-    secrets: inherit
