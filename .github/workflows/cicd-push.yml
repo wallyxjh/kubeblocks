@@ -99,6 +99,10 @@ jobs:
       runner-name: ${{ steps.get_runner_name.outputs.runner_name }}
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
       - name: make manifests check
         run: |
           make manifests
