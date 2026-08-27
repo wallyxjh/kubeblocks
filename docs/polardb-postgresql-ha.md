@@ -30,10 +30,12 @@ Use one release tag for all KubeBlocks control-plane artifacts:
 ghcr.io/<owner>/kubeblocks:<release>
 ghcr.io/<owner>/kubeblocks-tools:<release>
 ghcr.io/<owner>/kubeblocks-datascript:<release>
-ghcr.io/<owner>/kubeblocks-charts:<release>
+ghcr.io/<owner>/kubeblocks-addon-charts:<release>
 ```
 
-The `kubeblocks-charts` image contains the `polardb-postgresql` addon Chart.
+The `kubeblocks-addon-charts` image contains the `polardb-postgresql` addon
+Chart. The older `kubeblocks-charts` package remains for pre-release test
+installations and is not the formal release source.
 `.github/workflows/release-image.yml` builds and pushes all four images for a
 GitHub release; `.github/workflows/publish-ghcr-images.yml` publishes matching
 commit images after a default-branch merge. A release tag is an operational
@@ -71,7 +73,7 @@ helm upgrade --install kubeblocks deploy/helm -n kb-system --create-namespace \
   --set image.tag="${RELEASE}" \
   --set image.imagePullSecrets[0].name=ghcr-pull \
   --set addonChartsImage.registry="ghcr.io/${OWNER}" \
-  --set addonChartsImage.repository=kubeblocks-charts \
+  --set addonChartsImage.repository=kubeblocks-addon-charts \
   --set addonChartsImage.tag="${RELEASE}"
 
 kubectl get addon polardb-postgresql
