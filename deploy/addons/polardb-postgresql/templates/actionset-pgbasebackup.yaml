@@ -12,13 +12,13 @@ spec:
   env:
     - name: DATA_DIR
       value: {{ .Values.dataMountPath }}/pgroot/data
-    - name: IMAGE_TAG
-      value: {{ .Values.image.tags.major12.minor150 | quote }}
+    - name: POSTGRESQL_IMAGE
+      value: {{ include "postgresql.image.major12.minor150" . }}
   backup:
     preBackup: []
     postBackup: []
     backupData:
-      image: {{ include "postgresql.repository" . }}:$(IMAGE_TAG)
+      image: $(POSTGRESQL_IMAGE)
       runOnTargetPodNode: false
       command:
       - bash
@@ -31,7 +31,7 @@ spec:
         intervalSeconds: 5
   restore:
     prepareData:
-      image: {{ include "postgresql.repository" . }}:$(IMAGE_TAG)
+      image: $(POSTGRESQL_IMAGE)
       command:
       - bash
       - -c
