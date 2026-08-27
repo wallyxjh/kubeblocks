@@ -30,19 +30,21 @@ Use one release tag for all KubeBlocks control-plane artifacts:
 ghcr.io/<owner>/kubeblocks:<release>
 ghcr.io/<owner>/kubeblocks-tools:<release>
 ghcr.io/<owner>/kubeblocks-datascript:<release>
+ghcr.io/<owner>/kubeblocks-dataprotection:<release>
 ghcr.io/<owner>/kubeblocks-addon-charts:<release>
 ```
 
 The `kubeblocks-addon-charts` image contains the `polardb-postgresql` addon
 Chart. The older `kubeblocks-charts` package remains for pre-release test
 installations and is not the formal release source.
-`.github/workflows/release-image.yml` builds and pushes all four images for a
+`.github/workflows/release-image.yml` builds and pushes all five first-party images for a
 GitHub release; `.github/workflows/publish-ghcr-images.yml` publishes matching
 commit images after a default-branch merge. A release tag is an operational
 immutability contract: publish it once, never republish it, and record its
 registry digest in the release and deployment change record. GHCR does not make
-tags immutable by default. Production deployments must use that released tag;
-`latest` and per-commit images are for development or CI only.
+tags immutable by default. Production deployments must select a released tag,
+then deploy each image as `repository@sha256:<digest>`; `latest` and per-commit
+images are for development or CI only.
 
 If GHCR packages are private, grant the cluster pull access before installation:
 
@@ -57,24 +59,22 @@ kubectl -n kb-system patch serviceaccount kubeblocks-addon-installer \
 
 ## Install
 
-Set `OWNER` and `RELEASE` to the published image namespace and release tag. The
-command installs the manager, tools, and charts image from the same release and
-creates the PolarDB PostgreSQL Addon definition.
+Create a release values file from
+`examples/polardb-postgresql/production/values-release.example.yaml`. Replace
+every placeholder with the digest recorded by the approved release workflow.
+The file pins the manager, tools, datascript, data protection controller, addon
+charts, and the independently approved `datasafed` backup dependency.
+The production addon values must also pin the `spilo`, `pgbouncer`, and
+`postgres-exporter` runtime images. One `spilo` digest applies only to the
+matching `serviceVersion`; use a separate approved values record for each
+PostgreSQL version.
 
 ```bash
-OWNER=wallyxjh
-RELEASE=<release>
+RELEASE_VALUES=examples/polardb-postgresql/production/values-release.yaml
 
 helm upgrade --install kubeblocks deploy/helm -n kb-system --create-namespace \
-  --set image.registry="ghcr.io/${OWNER}" \
-  --set image.repository=kubeblocks \
-  --set image.tools.repository=kubeblocks-tools \
-  --set image.datascript.repository=kubeblocks-datascript \
-  --set image.tag="${RELEASE}" \
-  --set image.imagePullSecrets[0].name=ghcr-pull \
-  --set addonChartsImage.registry="ghcr.io/${OWNER}" \
-  --set addonChartsImage.repository=kubeblocks-addon-charts \
-  --set addonChartsImage.tag="${RELEASE}"
+  --values "${RELEASE_VALUES}" \
+  --set image.imagePullSecrets[0].name=ghcr-pull
 
 kubectl get addon polardb-postgresql
 kbcli addon enable polardb-postgresql
@@ -84,6 +84,19 @@ kubectl get componentdefinition polardb-postgresql-ha-v1
 
 Use `examples/polardb-postgresql/cluster.yaml` to create a two-replica Cluster.
 The Cluster must reach `Running` before accepting traffic.
+
+For production, install the addon with
+`examples/polardb-postgresql/production/addon-values-production.example.yaml`
+only after the BackupRepo is `Ready` and alert routing has been tested. This
+enables the daily base-backup schedule, 30-day retention, and PolarDB PostgreSQL
+PrometheusRule. Install the weekly restore drill with
+`examples/polardb-postgresql/production/scripts/install-restore-drill.sh` in
+each source Cluster namespace.
+
+Use [the production HA runbook](../examples/polardb-postgresql/production/RUNBOOK.md)
+for physical fencing, fault injection, and acceptance evidence. Those procedures
+require a multi-node environment with an infrastructure-specific fence provider;
+they cannot be validated on a single-node local-storage Kubernetes cluster.
 
 ## Verification
 
@@ -116,6 +129,14 @@ migrate them through a planned data migration or backup/restore procedure, not
 by changing `componentDef` in place. Remove retained v1 resources only after no
 Cluster, backup policy, or restore workflow references them.
 
-For a manager rollback, restore the exact preceding manager, tools, and charts
-image tag together. Confirm the Addon is `Enabled`, its ComponentDefinition is
-`Available`, and a disposable drill passes before resuming production changes.
+For a manager rollback, restore the exact preceding manager, tools, datascript,
+data protection, and charts image digests together. Confirm the Addon is
+`Enabled`, its ComponentDefinition is `Available`, and a disposable drill passes
+before resuming production changes.
+
+Run the release-lock and fencing safeguard checks before opening the release
+change:
+
+```bash
+make test-polardb-postgresql-production-manifests
+```

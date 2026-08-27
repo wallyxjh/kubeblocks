@@ -41,6 +41,9 @@ jobs:
           - image: kubeblocks-datascript
             dockerfile: ./docker/Dockerfile-datascript
             context: .
+          - image: kubeblocks-dataprotection
+            dockerfile: ./docker/Dockerfile-dataprotection
+            context: .
           - image: kubeblocks-addon-charts
             dockerfile: ./docker/Dockerfile-charts
             context: .

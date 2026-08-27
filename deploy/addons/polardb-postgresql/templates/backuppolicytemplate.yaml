@@ -22,18 +22,18 @@ spec:
       actionSetName: {{ include "polardbPostgresql.componentResourceName" (dict "suffix" "basebackup" "Values" .Values) }}
       snapshotVolumes: false
       envMapping:
-      - key: IMAGE_TAG
+      - key: POSTGRESQL_IMAGE
         valueFrom:
           componentDef:
           - names:
             - {{ include "polardbPostgresql.componentDefinitionName" . }}
-            mappingValue: {{ .Values.image.tags.major12.minor150 | quote }}
+            mappingValue: {{ include "postgresql.image.major12.minor150" . | quote }}
       targetVolumes:
         volumeMounts:
         - name: data
           mountPath: {{ .Values.dataMountPath }}
     schedules:
     - backupMethod: pg-basebackup
-      cronExpression: 0 18 * * *
-      enabled: false
-      retentionPeriod: 7d
+      cronExpression: {{ .Values.backup.schedule.cronExpression | quote }}
+      enabled: {{ .Values.backup.schedule.enabled }}
+      retentionPeriod: {{ .Values.backup.schedule.retentionPeriod | quote }}

@@ -121,7 +121,7 @@ spec:
       builtinHandler: polardb-postgresql
     switchover:
       withCandidate:
-        image: {{ include "postgresql.repository" . }}:12.15.0-pgvector-v0.6.1
+        image: {{ include "postgresql.image.major12.minor150" . }}
         exec:
           command:
             - /bin/bash
@@ -133,7 +133,7 @@ spec:
               payload="$(printf '{"leader":"%s","candidate":"%s"}' "${KB_REPLICATION_PRIMARY_POD_NAME}" "${KB_SWITCHOVER_CANDIDATE_NAME}")"
               curl -fsS -XPOST "${endpoint}/switchover" -d "${payload}"
       withoutCandidate:
-        image: {{ include "postgresql.repository" . }}:12.15.0-pgvector-v0.6.1
+        image: {{ include "postgresql.image.major12.minor150" . }}
         exec:
           command:
             - /bin/bash
@@ -182,7 +182,7 @@ spec:
               curl -fsS -XPOST "${endpoint}/switchover" -d "${payload}"
     accountProvision:
       customHandler:
-        image: {{ include "postgresql.repository" . }}:12.15.0-pgvector-v0.6.1
+        image: {{ include "postgresql.image.major12.minor150" . }}
         exec:
           command:
             - psql
@@ -203,7 +203,7 @@ spec:
       fsGroupChangePolicy: OnRootMismatch
     initContainers:
       - name: pg-init-container
-        image: {{ include "postgresql.repository" . }}:12.15.0-pgvector-v0.6.1
+        image: {{ include "postgresql.image.major12.minor150" . }}
         imagePullPolicy: {{ default "IfNotPresent" .Values.image.pullPolicy }}
         command:
           - /kb-scripts/init_container.sh
@@ -218,7 +218,7 @@ spec:
             mountPath: /kb-podinfo
     containers:
       - name: postgresql
-        image: {{ include "postgresql.repository" . }}:12.15.0-pgvector-v0.6.1
+        image: {{ include "postgresql.image.major12.minor150" . }}
         imagePullPolicy: {{ default "IfNotPresent" .Values.image.pullPolicy }}
         securityContext:
           runAsUser: 0

@@ -113,6 +113,8 @@ metrics:
     registry: ""
     repository: apecloud/postgres-exporter
     tag: v0.15.0
+    # Pin the exporter image by content when set.
+    digest: ""
     pullPolicy: IfNotPresent
   service:
     port: 9187
@@ -125,6 +127,8 @@ pgbouncer:
     registry: ""
     repository: apecloud/pgbouncer
     tag: 1.19.0
+    # Pin the connection pooler image by content when set.
+    digest: ""
     pullPolicy: IfNotPresent
 
 dataMountPath: /home/postgres/pgdata
@@ -155,3 +159,12 @@ ha:
 prometheusRule:
   enabled: false
   replicationLagSeconds: 3600
+  backupFailureMinutes: 15
+  restoreDrillFailureMinutes: 15
+
+backup:
+  schedule:
+    # Enable this only from a production addon values file after BackupRepo is Ready.
+    enabled: false
+    cronExpression: "0 18 * * *"
+    retentionPeriod: 7d

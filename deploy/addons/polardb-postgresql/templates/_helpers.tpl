@@ -147,42 +147,47 @@ Parameters: cvName, values
 {{/*
 Define image
 */}}
-{{- define "postgresql.repository" -}}
-{{ .Values.image.registry | default "docker.io" }}/{{ .Values.image.repository }}
-{{- end }}
+{{- define "polardbPostgresql.image" -}}
+{{- $image := printf "%s/%s" (.registry | default "docker.io") .repository -}}
+{{- if .digest -}}
+{{- printf "%s@%s" $image .digest -}}
+{{- else -}}
+{{- printf "%s:%s" $image .tag -}}
+{{- end -}}
+{{- end -}}
 
 {{- define "postgresql.image.major12.minor140" -}}
-{{ .Values.image.registry | default "docker.io" }}/{{ .Values.image.repository }}:{{ .Values.image.tags.major12.minor140 }}
+{{ include "polardbPostgresql.image" (dict "registry" .Values.image.registry "repository" .Values.image.repository "tag" .Values.image.tags.major12.minor140 "digest" .Values.image.digest) }}
 {{- end }}
 
 {{- define "postgresql.image.major12.minor141" -}}
-{{ .Values.image.registry | default "docker.io" }}/{{ .Values.image.repository }}:{{ .Values.image.tags.major12.minor141 }}
+{{ include "polardbPostgresql.image" (dict "registry" .Values.image.registry "repository" .Values.image.repository "tag" .Values.image.tags.major12.minor141 "digest" .Values.image.digest) }}
 {{- end }}
 
 {{- define "postgresql.image.major12.minor150" -}}
-{{ .Values.image.registry | default "docker.io" }}/{{ .Values.image.repository }}:{{ .Values.image.tags.major12.minor150 }}
+{{ include "polardbPostgresql.image" (dict "registry" .Values.image.registry "repository" .Values.image.repository "tag" .Values.image.tags.major12.minor150 "digest" .Values.image.digest) }}
 {{- end }}
 
 {{- define "postgresql.image.major14.minor072" -}}
-{{ .Values.image.registry | default "docker.io" }}/{{ .Values.image.repository }}:{{ .Values.image.tags.major14.minor072 }}
+{{ include "polardbPostgresql.image" (dict "registry" .Values.image.registry "repository" .Values.image.repository "tag" .Values.image.tags.major14.minor072 "digest" .Values.image.digest) }}
 {{- end }}
 
 {{- define "postgresql.image.major14.minor080" -}}
-{{ .Values.image.registry | default "docker.io" }}/{{ .Values.image.repository }}:{{ .Values.image.tags.major14.minor080 }}
+{{ include "polardbPostgresql.image" (dict "registry" .Values.image.registry "repository" .Values.image.repository "tag" .Values.image.tags.major14.minor080 "digest" .Values.image.digest) }}
 {{- end }}
 
 {{- define "postgresql.image.major15.minor070" -}}
-{{ .Values.image.registry | default "docker.io" }}/{{ .Values.image.repository }}:{{ .Values.image.tags.major15.minor070 }}
+{{ include "polardbPostgresql.image" (dict "registry" .Values.image.registry "repository" .Values.image.repository "tag" .Values.image.tags.major15.minor070 "digest" .Values.image.digest) }}
 {{- end }}
 
 {{- define "postgresql.image.major16.minor040" -}}
-{{ .Values.image.registry | default "docker.io" }}/{{ .Values.image.repository }}:{{ .Values.image.tags.major16.minor040 }}
+{{ include "polardbPostgresql.image" (dict "registry" .Values.image.registry "repository" .Values.image.repository "tag" .Values.image.tags.major16.minor040 "digest" .Values.image.digest) }}
 {{- end }}
 
 {{- define "pgbouncer.image" -}}
-{{ .Values.pgbouncer.image.registry | default (.Values.image.registry | default "docker.io") }}/{{ .Values.pgbouncer.image.repository }}:{{ .Values.pgbouncer.image.tag }}
+{{ include "polardbPostgresql.image" (dict "registry" (.Values.pgbouncer.image.registry | default (.Values.image.registry | default "docker.io")) "repository" .Values.pgbouncer.image.repository "tag" .Values.pgbouncer.image.tag "digest" .Values.pgbouncer.image.digest) }}
 {{- end }}
 
 {{- define "metrics.image" -}}
-{{ .Values.metrics.image.registry | default ( .Values.image.registry | default "docker.io" ) }}/{{ .Values.metrics.image.repository }}:{{ default .Values.metrics.image.tag }}
+{{ include "polardbPostgresql.image" (dict "registry" (.Values.metrics.image.registry | default (.Values.image.registry | default "docker.io")) "repository" .Values.metrics.image.repository "tag" .Values.metrics.image.tag "digest" .Values.metrics.image.digest) }}
 {{- end }}

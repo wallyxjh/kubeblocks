@@ -14,9 +14,11 @@ spec:
     rules:
     - alert: PolarDBPostgreSQLNoPrimary
       expr: |
-        sum by (namespace, app_kubernetes_io_instance) (
-          pg_replication_is_master{app_kubernetes_io_name="{{ include "polardbPostgresql.componentDefinitionName" . }}"}
-        ) != 1
+        (
+          count by (namespace, app_kubernetes_io_instance) (
+            pg_replication_is_master{app_kubernetes_io_name="{{ include "polardbPostgresql.componentDefinitionName" . }}"} == 1
+          ) != 1
+        ) or absent(pg_replication_is_master{app_kubernetes_io_name="{{ include "polardbPostgresql.componentDefinitionName" . }}"})
       for: 1m
       labels:
         severity: critical
@@ -38,8 +40,8 @@ spec:
       expr: |
         kube_customresource_status_phase{
           customresource_kind="BackupPolicy",
+          component_definition="{{ include "polardbPostgresql.componentDefinitionName" . }}",
           phase!="Available",
-          name=~".*-postgresql-backup-policy"
         } == 1
       for: 5m
       labels:
@@ -47,4 +49,35 @@ spec:
       annotations:
         summary: PolarDB PostgreSQL backup policy is not available
         description: BackupPolicy {{ "{{ $labels.name }}" }} is not Available.
+    - alert: PolarDBPostgreSQLBackupFailed
+      expr: |
+        max by (namespace, app_kubernetes_io_instance) (
+          kube_customresource_status_phase{
+            customresource_kind="Backup",
+            phase="Failed",
+          }
+          * on (namespace, backup_policy) group_left(component_definition)
+            kube_customresource_status_phase{
+              customresource_kind="BackupPolicy",
+              component_definition="{{ include "polardbPostgresql.componentDefinitionName" . }}",
+              phase="Available"
+            }
+        ) == 1
+      for: {{ .Values.prometheusRule.backupFailureMinutes }}m
+      labels:
+        severity: critical
+      annotations:
+        summary: PolarDB PostgreSQL backup failed
+        description: PolarDB PostgreSQL cluster {{ "{{ $labels.app_kubernetes_io_instance }}" }} has a failed backup.
+    - alert: PolarDBPostgreSQLRestoreDrillFailed
+      expr: |
+        max by (namespace, job_name) (
+          kube_job_status_failed{job_name=~"polardb-pg-restore-drill-.*"}
+        ) > 0
+      for: {{ .Values.prometheusRule.restoreDrillFailureMinutes }}m
+      labels:
+        severity: critical
+      annotations:
+        summary: PolarDB PostgreSQL restore drill failed
+        description: Restore drill job {{ "{{ $labels.job_name }}" }} failed in namespace {{ "{{ $labels.namespace }}" }}.
 {{- end }}
