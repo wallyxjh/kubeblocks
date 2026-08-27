@@ -233,6 +233,9 @@ jobs:
       APECD_REF: "v0.1.0"
 
   deploy-cn-kubeblocks-io:
+    permissions:
+      contents: write
+      id-token: write
     needs: trigger-mode
     if: ${{ contains(needs.trigger-mode.outputs.trigger-mode, '[docs_cn]') && (github.ref_name == 'main' || startsWith(github.ref_name, 'release')) }}
     uses: apecloud/apecloud-cd/.github/workflows/trigger-workflow.yml@v0.1.43
