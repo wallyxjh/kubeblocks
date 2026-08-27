@@ -654,8 +654,8 @@ func runWatch(ctx context.Context, status map[string]string, rv string,
 			} `json:"status"`
 		}
 		if err := dec.Decode(&obj); err != nil {
-			watchCmd.Process.Kill()
-			watchCmd.Wait()
+			_ = watchCmd.Process.Kill()
+			_ = watchCmd.Wait()
 			if ctx.Err() != nil {
 				break
 			}
@@ -669,8 +669,8 @@ func runWatch(ctx context.Context, status map[string]string, rv string,
 			status[key] = obj.Status.Phase
 			logInfo("%s -> %s", key, obj.Status.Phase)
 			if allReady() {
-				watchCmd.Process.Kill()
-				watchCmd.Wait()
+				_ = watchCmd.Process.Kill()
+				_ = watchCmd.Wait()
 				return nil
 			}
 		}
