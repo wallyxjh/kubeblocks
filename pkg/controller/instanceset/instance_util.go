@@ -213,11 +213,16 @@ func isImageMatched(pod *corev1.Pod) bool {
 		specName, specTag, specDigest := imageSplit(normalizeImageReference(specImage))
 		statusName, statusTag, statusDigest := imageSplit(normalizeImageReference(statusImage))
 		_, _, statusImageIDDigest := imageSplit(normalizeImageReference(containerStatus.ImageID))
-		if !imageNameMatched(specName, statusName) {
-			return false
+		if len(specDigest) != 0 {
+			// A digest-pinned image is identified by ImageID. Some runtimes report
+			// status.Image as a local, bare sha256 reference, which has no repository
+			// name to compare with the PodSpec.
+			if specDigest != statusDigest && specDigest != statusImageIDDigest {
+				return false
+			}
+			continue
 		}
-		// if digest presents in spec, it must be same in status
-		if len(specDigest) != 0 && specDigest != statusDigest && specDigest != statusImageIDDigest {
+		if !imageNameMatched(specName, statusName) {
 			return false
 		}
 		// Runtime may report any tag associated with the resolved image ID. When no digest is
