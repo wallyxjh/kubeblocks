@@ -6,6 +6,8 @@ keywords: [kubeblocks, polardb postgresql, patroni, high availability, ha]
 
 # KubeBlocks 0.9 PolarDB PostgreSQL 生产可用 HA 技术方案
 
+部署、`kbcli` 运维、YAML 创建与验收命令见 [部署与测试指南](polardb-postgresql-ha-deployment-test-guide-zh.md)。
+
 ## 1. 目标与结论
 
 本方案将 Patroni 管理的 PolarDB PostgreSQL 集成到 KubeBlocks 0.9，使用户能够以 KubeBlocks 的 Cluster、ComponentDefinition、OpsRequest、Backup 和 Restore 等原生资源管理数据库高可用生命周期。
