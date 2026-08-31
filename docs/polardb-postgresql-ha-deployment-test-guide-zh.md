@@ -215,9 +215,11 @@ kind: Cluster
 
 ### 4.2 创建失败排查：双副本不能调度
 
-使用 `podAntiAffinity: Required` 的两副本集群至少需要两个满足 `topologyKeys` 的可调度故障域。单节点测试集群无法满足 `kubernetes.io/hostname` 的硬反亲和，修复 StorageClass 后第二个副本仍会处于 `Pending`。
+使用 `podAntiAffinity: Required` 的两副本集群至少需要两个满足 `topologyKeys` 的可调度故障域。每个候选节点都必须带有所有指定的拓扑标签；例如保留 `topology.kubernetes.io/zone` 时，缺少该标签会使调度器因 `didn't match pod topology spread constraints (missing required label)` 拒绝所有 Pod，包括第一个副本。即使标签齐全，单节点测试集群也无法满足 `kubernetes.io/hostname` 的硬反亲和，第二个副本会处于 `Pending`。
 
-测试环境使用 `examples/polardb-postgresql/cluster-ha-test.yaml`，它采用 `Preferred` 反亲和和默认 StorageClass。该方式仅验证 KubeBlocks 生命周期、Patroni 和 Ops 流程，不能验证节点故障下的数据面 HA。生产环境必须使用至少两个节点，并配置可跨节点恢复或冗余的存储；单节点本地卷（例如 `openebs-hostpath`）不满足此要求。
+若 PVC 事件显示 `WaitForFirstConsumer` 或 `WaitForPodScheduled`，先查看对应 Pod 的调度事件；对于 `volumeBindingMode: WaitForFirstConsumer` 的 StorageClass（包括测试集群中的 `openebs-backup`），这是预期行为，PVC 会在 Pod 成功调度后才供给和绑定。
+
+测试环境使用 `examples/polardb-postgresql/cluster-ha-test.yaml`，它采用 `Preferred` 反亲和、仅保留 hostname 拓扑键并使用默认 StorageClass。该方式仅验证 KubeBlocks 生命周期、Patroni 和 Ops 流程，不能验证节点故障下的数据面 HA。生产环境必须使用至少两个节点，并配置可跨节点恢复或冗余的存储；单节点本地卷（例如 `openebs-hostpath` 或 `openebs-backup`）不满足此要求。
 
 ### 4.3 修正 StorageClass 后仍不能重新 apply
 
