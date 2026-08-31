@@ -1,0 +1,95 @@
+apiVersion: apps.kubeblocks.io/v1alpha1
+kind: ComponentDefinition
+metadata:
+  name: {{ include "polardbPg.componentDefinitionName" . }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{ include "polardbPg.componentDefinitionName" . }}: {{ include "polardbPg.componentDefinitionName" . }}
+    {{- include "polardbPg.labels" . | nindent 4 }}
+spec:
+  provider: kubeblocks
+  description: Real PolarDB-PG {{ .Values.localInstance.engineVersion }} local-instance runtime for KubeBlocks 0.9; single-instance localfs only, not shared-storage HA.
+  serviceKind: polardb-pg
+  serviceVersion: {{ .Values.localInstance.serviceVersion | quote }}
+  services:
+    - name: postgresql
+      serviceName: postgresql
+      spec:
+        ports:
+          - name: tcp-postgresql
+            port: {{ .Values.localInstance.port }}
+            targetPort: tcp-postgresql
+  updateStrategy: BestEffortParallel
+  volumes:
+    - name: data
+      needSnapshot: true
+  logConfigs:
+    - name: running
+      filePathPattern: {{ printf "%s/primary_datadir/log/*" .Values.dataMountPath }}
+  systemAccounts:
+    - name: postgres
+      initAccount: true
+      passwordGenerationPolicy:
+        length: 16
+        numDigits: 5
+        numSymbols: 0
+        letterCase: MixedCases
+  runtime:
+    containers:
+      - name: polardb
+        image: {{ include "polardbPg.image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+              - SYS_PTRACE
+        ports:
+          - name: tcp-postgresql
+            containerPort: {{ .Values.localInstance.port }}
+        env:
+          - name: POLARDB_PORT
+            value: {{ .Values.localInstance.port | quote }}
+          - name: POLARDB_USER
+            value: $(POSTGRES_USER)
+          - name: POLARDB_PASSWORD
+            value: $(POSTGRES_PASSWORD)
+        readinessProbe:
+          exec:
+            command:
+              - /bin/bash
+              - -ec
+              - pg_isready -U postgres -h 127.0.0.1 -p {{ .Values.localInstance.port }}
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          exec:
+            command:
+              - /bin/bash
+              - -ec
+              - pg_isready -U postgres -h 127.0.0.1 -p {{ .Values.localInstance.port }}
+          initialDelaySeconds: 60
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 6
+        volumeMounts:
+          - name: data
+            mountPath: {{ .Values.dataMountPath }}
+  vars:
+    - name: POSTGRES_USER
+      valueFrom:
+        credentialVarRef:
+          compDef: {{ include "polardbPg.componentDefinitionName" . }}
+          name: postgres
+          optional: false
+          username: Required
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        credentialVarRef:
+          compDef: {{ include "polardbPg.componentDefinitionName" . }}
+          name: postgres
+          optional: false
+          password: Required

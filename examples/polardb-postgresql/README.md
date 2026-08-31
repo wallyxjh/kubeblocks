@@ -1,7 +1,12 @@
-# PolarDB PostgreSQL
+# Legacy PostgreSQL Patroni HA
 
-This directory contains KubeBlocks 0.9 examples for running PolarDB PostgreSQL
-with the KB-native production HA workflow.
+> This directory runs ordinary PostgreSQL through Spilo and Patroni. It is not
+> the PolarDB-PG database engine. Use
+> [the real PolarDB-PG integration](../polardb-pg/README.md) when the engine
+> itself must be PolarDB-PG.
+
+This directory contains KubeBlocks 0.9 examples for running legacy PostgreSQL
+with the KB-native Patroni HA workflow.
 
 For the production installation, upgrade policy, image policy, and HA boundary,
 read [PolarDB PostgreSQL HA for KubeBlocks 0.9](../../docs/polardb-postgresql-ha.md).
