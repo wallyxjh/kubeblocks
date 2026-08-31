@@ -8,6 +8,13 @@ This is a single-instance localfs integration. It is suitable for verifying the
 real PolarDB-PG engine and basic KubeBlocks lifecycle, but it is not a
 shared-storage or production HA deployment.
 
+The `polardb-pg-local-v3` definition also prepares an explicit
+`pg_hba.conf` replication rule for a KubeBlocks `pg_basebackup` Job. Before
+using the remote backup method outside a test cluster, set
+`backup.replicationHbaCIDR` to the Kubernetes Pod CIDR and configure an
+independently operated S3-compatible `BackupRepo`; the chart default
+`0.0.0.0/0` is test-only.
+
 ```bash
 helm upgrade --install kb-addon-polardb-pg deploy/addons/polardb-pg \
   -n kb-system --create-namespace

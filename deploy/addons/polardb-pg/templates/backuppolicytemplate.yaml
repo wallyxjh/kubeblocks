@@ -1,0 +1,28 @@
+apiVersion: apps.kubeblocks.io/v1alpha1
+kind: BackupPolicyTemplate
+metadata:
+  name: {{ include "polardbPg.resourceName" (dict "suffix" "backup-policy-template" "Values" .Values) }}
+  annotations:
+    dataprotection.kubeblocks.io/is-default-policy-template: "true"
+    helm.sh/resource-policy: keep
+  labels:
+    {{ include "polardbPg.componentDefinitionName" . }}: {{ include "polardbPg.componentDefinitionName" . }}
+    service-kind/polardb-pg: "true"
+    {{- include "polardbPg.labels" . | nindent 4 }}
+spec:
+  backupPolicies:
+    - componentDefs:
+        - {{ include "polardbPg.componentDefinitionName" . }}
+      target:
+        account: postgres
+        fallbackRole: primary
+        role: primary
+      backupMethods:
+        - name: polar-pg-basebackup
+          actionSetName: {{ include "polardbPg.resourceName" (dict "suffix" "basebackup" "Values" .Values) }}
+          snapshotVolumes: false
+      schedules:
+        - backupMethod: polar-pg-basebackup
+          cronExpression: {{ .Values.backup.schedule.cronExpression | quote }}
+          enabled: {{ .Values.backup.schedule.enabled }}
+          retentionPeriod: {{ .Values.backup.schedule.retentionPeriod | quote }}

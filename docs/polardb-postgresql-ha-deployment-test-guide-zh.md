@@ -82,15 +82,15 @@ test -x examples/polardb-pg/scripts/verify-local-engine.sh
 | 资源 | 值 |
 | --- | --- |
 | Helm release | `kb-addon-polardb-pg` |
-| ComponentDefinition | `polardb-pg-local-v2` |
-| ComponentVersion | `polardb-pg-local-v2-version` |
+| ComponentDefinition | `polardb-pg-local-v3` |
+| ComponentVersion | `polardb-pg-local-v3-version` |
 | 测试 Namespace | `polardb-pg-real` |
 | 测试 Cluster | `polardb-pg-real` |
 | 数据库容器 | `polardb` |
 
 KubeBlocks 0.9 的 ComponentDefinition 不可变。若变更真实引擎版本、镜像 digest、
 挂载方式或运行时安全上下文，必须创建新的定义名，例如
-`polardb-pg-local-v3`，不能原地修改 `polardb-pg-local-v2`。
+`polardb-pg-local-v4`，不能原地修改 `polardb-pg-local-v3`。
 
 ## 4. 使用 Helm 安装真实 PolarDB-PG Addon
 
@@ -102,9 +102,9 @@ helm upgrade --install kb-addon-polardb-pg deploy/addons/polardb-pg \
   --create-namespace \
   --wait --timeout 10m
 
-kubectl get componentdefinition polardb-pg-local-v2
-kubectl get componentversion polardb-pg-local-v2-version
-kubectl get componentdefinition polardb-pg-local-v2 \
+kubectl get componentdefinition polardb-pg-local-v3
+kubectl get componentversion polardb-pg-local-v3-version
+kubectl get componentdefinition polardb-pg-local-v3 \
   -o jsonpath='{.spec.runtime.containers[0].image}{"\n"}'
 ```
 
@@ -150,7 +150,7 @@ spec:
   terminationPolicy: Delete
   componentSpecs:
     - name: polardb
-      componentDef: polardb-pg-local-v2
+      componentDef: polardb-pg-local-v3
       replicas: 1
       disableExporter: true
       resources:
@@ -283,6 +283,34 @@ kubectl exec -n "$NS" "$POD" -c polardb -- \
 Cluster 应重新变为 `Running`，Pod 为 `1/1 Running`，查询仍应返回 `1 | updated`。
 这验证 PVC 持久化和 KubeBlocks Pod 重建生命周期，不表示节点级或存储级 HA。
 
+### 7.4 真实内核远程物理备份
+
+先创建独立运维的 S3/MinIO `BackupRepo`。可参考
+`examples/polardb-pg/backuprepo-minio.example.yaml`，其中的密钥、endpoint、bucket
+和 TLS 校验值必须替换为生产值。安装 Addon 时须把 replication HBA 收窄到真实 Pod
+CIDR，例如：
+
+```bash
+helm upgrade --install kb-addon-polardb-pg deploy/addons/polardb-pg \
+  --namespace kb-system --create-namespace \
+  --set backup.replicationHbaCIDR=10.0.0.0/16
+
+kubectl apply -f examples/polardb-pg/backuprepo-minio.example.yaml
+kubectl patch cluster "$CLUSTER" -n "$NS" --type=merge -p \
+  '{"spec":{"backup":{"enabled":false,"retentionPeriod":"7d","method":"polar-pg-basebackup","repoName":"polardb-pg-minio"}}}'
+kubectl annotate cluster "$CLUSTER" -n "$NS" \
+  kubeblocks.io/reconcile=polardb-pg-remote-backup --overwrite
+
+kubectl apply -f examples/polardb-pg/backup.yaml
+NAMESPACE="$NS" BACKUP=polardb-pg-local-basebackup \
+  bash examples/polardb-pg/scripts/verify-remote-backup.sh
+```
+
+成功结果为 `Backup.status.phase=Completed`，且脚本输出对象存储路径和字节数。该
+ActionSet 调用的是官方镜像中的 `/u01/polardb_pg/bin/pg_basebackup`，并使用
+PostgreSQL 17 可用于 stdout tar 输出的 `-X fetch`。它仅适用于 local-instance；
+共享存储 MPDCluster 的备份恢复边界见 `docs/polardb-pg-stack-ops-zh.md`。
+
 ## 8. 常见问题
 
 ### 8.1 Cluster 状态为空或为 `Creating`
@@ -290,7 +318,7 @@ Cluster 应重新变为 `Running`，Pod 为 `1/1 Running`，查询仍应返回 `
 先检查 ComponentDefinition 是否存在、Pod 事件和 PVC：
 
 ```bash
-kubectl get componentdefinition polardb-pg-local-v2
+kubectl get componentdefinition polardb-pg-local-v3
 kubectl get cluster,pod,pvc -n "$NS" -o wide
 kubectl describe pod -n "$NS" "$POD"
 kubectl get events -n "$NS" --sort-by=.metadata.creationTimestamp
@@ -320,20 +348,24 @@ ClusterDefinition 模型。因此 `kubectl get cluster` 的 `CLUSTER-DEFINITION`
 把它扩成多个 KubeBlocks Pod 且每个 Pod 挂独立 PVC，会破坏 PolarDB 共享存储模型，
 不能获得 PolarDB 读写分离、LogIndex 和故障切换语义。
 
-生产 HA 适配至少需要：
+当前源码已经提供到官方 Stack 的 KubeBlocks Ops 桥接：`switchRw`、`restartIns`、
+`forceRebuild` 和 fail-closed STONITH webhook 均只操作官方 `MPDCluster` 控制面。
+同时，真实 local-instance 内核的远程 `pg_basebackup` 已通过 S3 `BackupRepo`
+集成测试。它们不等同于生产 HA 验收，生产环境仍必须完成：
 
-1. 共享存储实现，保证所有 PolarDB 计算节点访问同一数据目录，并处理并发访问、
-   多路径、节点隔离与存储故障。
-2. PolarDB Cluster Manager 或官方部署控制面与 KubeBlocks 的控制面桥接，不能用
-   Patroni 替代 PolarDB 角色管理。
-3. 至少三个跨故障域节点、明确的 primary/standby 角色选择、switchover、rejoin 和
-   rebuild 流程。
-4. 可验证的 fencing/STONITH，覆盖节点失联、网络分区和共享存储异常，防止双主写入。
-5. 远程备份、保留策略、定期恢复演练、监控告警、故障注入演练和完成验收的运维
-   runbook。
+1. 部署官方 Stack Operator、Cluster Manager 和至少三个跨故障域的共享存储计算节点；
+   所有计算节点须经 PolarFS/PFS 和多路径访问同一数据目录。
+2. 对真实 `MPDCluster` 验证桥接的 switchover、rejoin/rebuild 与 Cluster Manager
+   状态收敛，不能以本地模拟 CRD 状态替代。
+3. 接入能确认断电、网络隔离或共享存储写权限撤销的物理 STONITH provider，并在节点
+   失联、网络分区、存储异常下完成故障注入演练。
+4. 使用与 Stack release 匹配的官方备份代理、WAL 归档与恢复 API，完成隔离恢复，
+   验证共享卷、Cluster Manager 元数据和数据一致性。
+5. 配置备份保留、监控告警、故障注入演练和已验收的运维 runbook。
 
-在这些条件完成并在目标基础设施完成验收之前，只能将当前 Addon 标记为
-“真实内核单实例集成”，不能标记为“生产可用 HA”。
+在这些目标基础设施验收完成前，`polardb-pg-local-v3` 仍只能标记为“真实内核
+单实例集成”；Stack Ops bridge 则标记为“控制面适配已实现、真实共享存储 HA 待验收”，
+不能标记为“生产可用 HA”。
 
 ## 10. 清理测试环境
 
@@ -345,8 +377,8 @@ kubectl delete namespace polardb-pg-real --wait=true
 
 # 仅当没有其他真实 PolarDB-PG Cluster 使用该定义时执行。
 helm uninstall kb-addon-polardb-pg -n kb-system
-kubectl delete componentversion polardb-pg-local-v2-version --ignore-not-found
-kubectl delete componentdefinition polardb-pg-local-v2 --ignore-not-found
+kubectl delete componentversion polardb-pg-local-v3-version --ignore-not-found
+kubectl delete componentdefinition polardb-pg-local-v3 --ignore-not-found
 ```
 
 执行前务必确认 Namespace、Cluster 和 PVC 名称。`terminationPolicy: Delete` 会删除

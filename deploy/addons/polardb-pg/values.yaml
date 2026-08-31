@@ -11,7 +11,7 @@ image:
 componentDefinition:
   # ComponentDefinitions are immutable in KubeBlocks 0.9. Change this name for
   # any incompatible engine or runtime change.
-  name: polardb-pg-local-v2
+  name: polardb-pg-local-v3
 
 dataMountPath: /var/polardb
 
@@ -23,3 +23,21 @@ localInstance:
   serviceVersion: 17.11.1
   # The official engine banner is PostgreSQL 17.11 (PolarDB 17.11.1.0 ...).
   engineVersion: 17.11.1.0
+
+# The action set performs an engine-level physical base backup and streams it
+# through KubeBlocks datasafed to a BackupRepo with accessMethod: Tool. It is
+# intentionally scoped to the local-instance component definition. Restoring a
+# shared-storage MPDCluster requires PolarDB Stack topology metadata and is not
+# provided by this action set.
+backup:
+  # The official local-instance entrypoint permits normal TCP clients but does
+  # not add a replication record to pg_hba.conf. The postStart hook adds this
+  # rule after the entrypoint initializes the data directory so pg_basebackup
+  # can run in a separate KubeBlocks backup Job. For a production environment,
+  # override this with the actual Kubernetes Pod CIDR, never 0.0.0.0/0.
+  replicationHbaCIDR: 0.0.0.0/0
+  replicationHbaAuthMethod: md5
+  schedule:
+    enabled: false
+    cronExpression: "0 2 * * *"
+    retentionPeriod: 7d

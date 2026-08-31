@@ -12,8 +12,8 @@ PostgreSQL 17.11 (PolarDB 17.11.1.0 build ...)
 ```
 
 当前阶段提供单实例 localfs PolarDB-PG 的 KubeBlocks 管理能力，包括持久卷、
-Pod 重建后的数据保留、服务发现和版本身份验证。它不是共享存储部署，也不是
-生产 HA 方案。
+Pod 重建后的数据保留、服务发现、版本身份验证和使用 KubeBlocks `BackupRepo`
+的全量物理远程备份。它不是共享存储部署，也不是生产 HA 方案。
 
 旧的 `polardb-postgresql` Addon 使用 `apecloud/spilo` 和 Patroni，属于普通
 PostgreSQL 流复制实现，不能作为真实 PolarDB-PG 使用。
@@ -51,3 +51,11 @@ NAMESPACE=polardb-pg-real CLUSTER=polardb-pg-real \
 目录，存储层提供多路径或等效的并发访问与读写控制，并由 PolarDB Cluster
 Manager/官方部署流程负责节点角色和故障切换。KubeBlocks 的后续适配应作为
 该控制面的桥接，而非使用 Patroni 代替它。
+
+官方 Stack 控制面桥接、KubeBlocks Custom Ops 映射、STONITH 约束与真实引擎的
+远程备份边界见 [PolarDB Stack Ops 方案](polardb-pg-stack-ops-zh.md)。
+
+`polardb-pg-local-v3` 为独立备份 Job 添加了显式的 replication HBA 规则，避免
+把普通 SQL 访问规则误认为复制访问规则。Chart 默认 `0.0.0.0/0` 仅用于集成测试；
+生产安装必须通过 `--set backup.replicationHbaCIDR=<Pod CIDR>` 收窄为实际 Pod
+网段，并使用独立运行、带 TLS 与生命周期策略的 S3/MinIO `BackupRepo`。
