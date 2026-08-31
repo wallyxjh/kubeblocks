@@ -147,7 +147,7 @@ kubectl get componentdefinition polardb-postgresql-ha-v1
 
 ## 4. YAML 创建集群
 
-以下清单创建两副本 Patroni 集群。将资源、StorageClass、故障域拓扑和 ComponentDefinition 名称替换为目标环境的批准值。
+以下清单创建两副本 Patroni 集群。生产部署前，目标集群必须至少有两个可调度节点；若保留 `topology.kubernetes.io/zone`，每个节点还必须带有该拓扑标签。将资源、故障域拓扑和 ComponentDefinition 名称替换为目标环境的批准值，并为数据卷显式设置一个已存在的远程或冗余 RWO StorageClass。
 
 ```yaml
 apiVersion: v1
@@ -185,7 +185,9 @@ spec:
           spec:
             accessModes:
               - ReadWriteOnce
-            storageClassName: REPLACE_REMOTE_STORAGECLASS
+            # 生产环境必须取消下一行注释，并填入 `kubectl get storageclass`
+            # 返回的真实远程或冗余 RWO StorageClass 名称。
+            # storageClassName: remote-rwo-storageclass
             resources:
               requests:
                 storage: 100Gi
@@ -193,7 +195,7 @@ spec:
 
 YAML 的缩进和文档分隔符是语义的一部分：`metadata.name` 必须缩进在 `metadata:` 下，两个资源之间只能使用一行 `---`。不能将其替换为一串连字符，也不能将 `apiVersion`、`kind`、`metadata` 和 `spec` 合并为同一行。
 
-`REPLACE_REMOTE_STORAGECLASS` 必须替换为已存在且经批准的远程 StorageClass。功能测试若集群配置了默认 StorageClass，可删除该行；确认默认值的命令为 `kubectl get storageclass`。
+生产环境必须将注释中的 `storageClassName` 改为已存在且经批准的远程或冗余 StorageClass，不能保留 `REPLACE_REMOTE_STORAGECLASS`、`<实际的远程StorageClass名称>` 或任何其他占位符。功能测试若集群配置了默认 StorageClass，可不设置该字段；确认默认值的命令为 `kubectl get storageclass`。
 
 ### 4.1 创建失败排查：Namespace 名称为空
 
@@ -211,9 +213,35 @@ kind: Cluster
 
 不要使用 `------------------` 作为分隔符，也不要将 `apiVersion`、`kind`、`metadata` 或 `spec` 合并为一行。完整的可用清单见本节上方；测试环境可直接使用 `examples/polardb-postgresql/cluster-ha-test.yaml`。
 
+### 4.2 创建失败排查：双副本不能调度
+
+使用 `podAntiAffinity: Required` 的两副本集群至少需要两个满足 `topologyKeys` 的可调度故障域。单节点测试集群无法满足 `kubernetes.io/hostname` 的硬反亲和，修复 StorageClass 后第二个副本仍会处于 `Pending`。
+
+测试环境使用 `examples/polardb-postgresql/cluster-ha-test.yaml`，它采用 `Preferred` 反亲和和默认 StorageClass。该方式仅验证 KubeBlocks 生命周期、Patroni 和 Ops 流程，不能验证节点故障下的数据面 HA。生产环境必须使用至少两个节点，并配置可跨节点恢复或冗余的存储；单节点本地卷（例如 `openebs-hostpath`）不满足此要求。
+
+### 4.3 修正 StorageClass 后仍不能重新 apply
+
+KubeBlocks 将 `volumeClaimTemplates` 视为不可变字段，除扩容存储容量外不能修改其定义。因此若首次创建时写入了错误的 `storageClassName`，再次 `apply` 会返回 `volumeClaimTemplates is forbidden modification except for storage size`。这不是控制器重试即可恢复的状态。
+
+若该 Cluster 尚未创建 PVC，且确认没有任何业务数据，可删除空 Cluster 后按修正后的清单重建：
+
+```bash
+kubectl get instanceset,pod,pvc -n polardb-prod
+kubectl delete cluster polardb-pg -n polardb-prod --wait=true
+
+# 单节点功能测试：使用默认 StorageClass 和 Preferred 反亲和。
+kubectl apply -f examples/polardb-postgresql/cluster-ha-test.yaml
+```
+
+若已存在 PVC 或业务数据，不能直接删除 Cluster。应先执行备份，按迁移或恢复流程在正确的 StorageClass 上创建新 Cluster，再完成数据恢复和业务切换。
+
 保存为 `polardb-pg.yaml` 后，先进行客户端语法校验，再创建 Namespace 和 Cluster：
 
 ```bash
+kubectl get componentdefinition polardb-postgresql-ha-v1
+kubectl get storageclass <production-storageclass>
+kubectl get nodes -L topology.kubernetes.io/zone
+
 kubectl apply --dry-run=client -f polardb-pg.yaml
 
 kubectl create namespace polardb-prod --dry-run=client -o yaml | kubectl apply -f -
