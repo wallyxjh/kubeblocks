@@ -5,6 +5,9 @@ KubeBlocks 0.9 native Ops. Patroni remains the database HA authority; KubeBlocks
 drives lifecycle operations and disables lorry's second HA loop for the
 `polardb-postgresql` builtin handler.
 
+For the implementation architecture, production boundary, verification record,
+and merged PR traceability, see the [Chinese technical solution](polardb-postgresql-ha-technical-solution-zh.md).
+
 ## Supported Operations
 
 - Planned switchover. Automatic candidate selection accepts only a healthy
