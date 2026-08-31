@@ -195,6 +195,22 @@ YAML 的缩进和文档分隔符是语义的一部分：`metadata.name` 必须�
 
 `REPLACE_REMOTE_STORAGECLASS` 必须替换为已存在且经批准的远程 StorageClass。功能测试若集群配置了默认 StorageClass，可删除该行；确认默认值的命令为 `kubectl get storageclass`。
 
+### 4.1 创建失败排查：Namespace 名称为空
+
+若 `kubectl apply` 返回 `resource name may not be empty`，说明 Namespace 文档中的 `metadata.name` 为空，最常见原因是把 `name` 写成了与 `metadata:` 同级的字段。若随后返回 `namespaces "polardb-prod" not found`，这是前一个错误的连锁结果：Namespace 没有创建成功，Cluster 无法在该命名空间中创建。
+
+必须保持以下结构，缩进为两个空格，资源分隔符仅为三个连字符：
+
+```yaml
+metadata:
+  name: polardb-prod
+---
+apiVersion: apps.kubeblocks.io/v1alpha1
+kind: Cluster
+```
+
+不要使用 `------------------` 作为分隔符，也不要将 `apiVersion`、`kind`、`metadata` 或 `spec` 合并为一行。完整的可用清单见本节上方；测试环境可直接使用 `examples/polardb-postgresql/cluster-ha-test.yaml`。
+
 保存为 `polardb-pg.yaml` 后，先进行客户端语法校验，再创建 Namespace 和 Cluster：
 
 ```bash
