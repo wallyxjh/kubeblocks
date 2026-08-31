@@ -191,10 +191,17 @@ spec:
                 storage: 100Gi
 ```
 
-保存为 `polardb-pg.yaml` 后，先进行服务端校验再创建：
+YAML 的缩进和文档分隔符是语义的一部分：`metadata.name` 必须缩进在 `metadata:` 下，两个资源之间只能使用一行 `---`。不能将其替换为一串连字符，也不能将 `apiVersion`、`kind`、`metadata` 和 `spec` 合并为同一行。
+
+`REPLACE_REMOTE_STORAGECLASS` 必须替换为已存在且经批准的远程 StorageClass。功能测试若集群配置了默认 StorageClass，可删除该行；确认默认值的命令为 `kubectl get storageclass`。
+
+保存为 `polardb-pg.yaml` 后，先进行客户端语法校验，再创建 Namespace 和 Cluster：
 
 ```bash
+kubectl apply --dry-run=client -f polardb-pg.yaml
+
 kubectl create namespace polardb-prod --dry-run=client -o yaml | kubectl apply -f -
+kubectl get namespace polardb-prod
 kubectl apply --dry-run=server -f polardb-pg.yaml
 kubectl apply -f polardb-pg.yaml
 
@@ -203,7 +210,7 @@ kubectl wait --for=condition=Ready cluster/polardb-pg \
 kubectl get cluster,instanceset,pod -n polardb-prod -o wide
 ```
 
-仓库提供的最小示例为 `examples/polardb-postgresql/cluster.yaml`。该文件适用于功能测试；正式环境使用本节清单并设置 remote StorageClass、资源和 `Required` 反亲和。
+仓库提供的最小示例为 `examples/polardb-postgresql/cluster.yaml`。另有可直接创建命名空间的测试清单 `examples/polardb-postgresql/cluster-ha-test.yaml`：它使用默认 StorageClass、`Preferred` 反亲和和较低资源请求，适合测试环境。正式环境使用本节清单并设置 remote StorageClass、资源和 `Required` 反亲和。
 
 ## 5. 创建后基线验证
 

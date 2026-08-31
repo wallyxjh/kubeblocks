@@ -31,6 +31,18 @@ kubectl get cluster,pod -n kb-polardb-pg
 The example creates a two-replica component named `postgresql` from
 `polardb-postgresql-ha-v1`.
 
+For a self-contained test manifest that creates the namespace and uses the
+cluster default StorageClass, run:
+
+```bash
+kubectl apply --dry-run=client \
+  -f examples/polardb-postgresql/cluster-ha-test.yaml
+kubectl apply -f examples/polardb-postgresql/cluster-ha-test.yaml
+```
+
+For the production manifest and validation sequence, read the [Chinese
+deployment and test guide](../../docs/polardb-postgresql-ha-deployment-test-guide-zh.md).
+
 ## Enable HA Backup Policy
 
 The addon chart installs `polardb-postgresql-ha-v1-backup-policy-template`, which
