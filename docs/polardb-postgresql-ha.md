@@ -1,6 +1,12 @@
-# PolarDB PostgreSQL HA on KubeBlocks 0.9
+# Legacy PostgreSQL Patroni HA on KubeBlocks 0.9
 
-This integration manages a Patroni-based PolarDB PostgreSQL deployment through
+> **Warning:** This addon runs `apecloud/spilo`, which is ordinary PostgreSQL
+> with Patroni. Despite its historical `polardb-postgresql` name, it is not the
+> PolarDB-PG database engine and must not be presented as PolarDB-PG. For the
+> real-engine local-instance integration, see
+> [PolarDB-PG for KubeBlocks 0.9](polardb-pg-real-engine-zh.md).
+
+This integration manages a Patroni-based PostgreSQL deployment through
 KubeBlocks 0.9 native Ops. Patroni remains the database HA authority; KubeBlocks
 drives lifecycle operations and disables lorry's second HA loop for the
 `polardb-postgresql` builtin handler.
