@@ -1,7 +1,12 @@
-# PolarDB PostgreSQL
+# Legacy PostgreSQL Patroni HA
 
-This directory contains KubeBlocks 0.9 examples for running PolarDB PostgreSQL
-with the KB-native production HA workflow.
+> This directory runs ordinary PostgreSQL through Spilo and Patroni. It is not
+> the PolarDB-PG database engine. Use
+> [the real PolarDB-PG integration](../polardb-pg/README.md) when the engine
+> itself must be PolarDB-PG.
+
+This directory contains KubeBlocks 0.9 examples for running legacy PostgreSQL
+with the KB-native Patroni HA workflow.
 
 For the production installation, upgrade policy, image policy, and HA boundary,
 read [PolarDB PostgreSQL HA for KubeBlocks 0.9](../../docs/polardb-postgresql-ha.md).
@@ -30,6 +35,18 @@ kubectl get cluster,pod -n kb-polardb-pg
 
 The example creates a two-replica component named `postgresql` from
 `polardb-postgresql-ha-v1`.
+
+For a self-contained test manifest that creates the namespace and uses the
+cluster default StorageClass, run:
+
+```bash
+kubectl apply --dry-run=client \
+  -f examples/polardb-postgresql/cluster-ha-test.yaml
+kubectl apply -f examples/polardb-postgresql/cluster-ha-test.yaml
+```
+
+For the production manifest and validation sequence, read the [Chinese
+deployment and test guide](../../docs/polardb-postgresql-ha-deployment-test-guide-zh.md).
 
 ## Enable HA Backup Policy
 

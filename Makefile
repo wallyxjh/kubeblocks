@@ -525,6 +525,10 @@ test-polardb-postgresql-ha: helmtool kubectl ## Run PolarDB PostgreSQL HA drill 
 test-polardb-postgresql-production-manifests: helmtool ## Validate PolarDB PostgreSQL production image locks and fencing safeguards.
 	bash test/e2e/polardb-postgresql-production-manifests.sh
 
+.PHONY: verify-polardb-pg-local-engine
+verify-polardb-pg-local-engine: kubectl ## Verify that a running KubeBlocks Cluster uses the real PolarDB-PG engine.
+	bash examples/polardb-pg/scripts/verify-local-engine.sh
+
 .PHONY: render-smoke-testdata-manifests
 render-smoke-testdata-manifests: addonsPath=addons/addons
 render-smoke-testdata-manifests: fetch-addons ## Update E2E test dataset
