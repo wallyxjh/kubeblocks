@@ -4,8 +4,6 @@ export PATH="${PATH}:${DP_DATASAFED_BIN_PATH}:${PG_BIN}"
 export DATASAFED_BACKEND_BASE_PATH="${DP_BACKUP_BASE_PATH}"
 export PGPASSWORD="${DP_DB_PASSWORD}"
 
-trap handle_exit EXIT
-
 if [[ ! -x "${PG_BIN}/pg_basebackup" || ! -x "${PG_BIN}/psql" ]]; then
   echo "the pinned runtime does not expose the expected PolarDB-PG client binaries at ${PG_BIN}" >&2
   exit 1
@@ -16,12 +14,23 @@ if [[ "$("${PG_BIN}/psql" -U "${DP_DB_USER}" -h "${DP_DB_HOST}" -p "${DP_DB_PORT
   exit 1
 fi
 
+backup_dir="$(mktemp -d)"
+cleanup_backup_dir() {
+  local exit_code=$?
+  rm -rf "${backup_dir}"
+  return "${exit_code}"
+}
+trap 'cleanup_backup_dir; handle_exit' EXIT
+
 start_time="$(get_current_time)"
-# PostgreSQL 17 rejects -X stream when tar output is written to stdout. Fetch
-# keeps the required WAL files in the tar stream and is supported by the
-# official PolarDB-PG client used by this action set.
+# A PolarDB-PG local instance stores user data in shared_datadir, not only in
+# PostgreSQL's primary data directory. --polardata is mandatory; a plain
+# pg_basebackup can produce a bootable but empty database after recovery.
 "${PG_BIN}/pg_basebackup" \
-  -Ft -Pv -c fast -X fetch -D - \
+  -D "${backup_dir}/primary_datadir" \
+  --polardata="${backup_dir}/shared_datadir" \
+  -Pv -c fast -X stream \
   -h "${DP_DB_HOST}" -p "${DP_DB_PORT:-5432}" -U "${DP_DB_USER}" \
+  && tar -C "${backup_dir}" -cpf - primary_datadir shared_datadir \
   | datasafed push -z zstd-fastest - "/${DP_BACKUP_NAME}.tar.zst"
 stat_and_save_backup_info "${start_time}"

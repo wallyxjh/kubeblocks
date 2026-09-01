@@ -14,6 +14,8 @@ spec:
       value: {{ include "polardbPg.image" . }}
     - name: PG_BIN
       value: /u01/polardb_pg/bin
+    - name: DATA_DIR
+      value: {{ .Values.dataMountPath }}
   backup:
     backupData:
       image: $(POLARDB_PG_IMAGE)
@@ -27,3 +29,11 @@ spec:
       syncProgress:
         enabled: true
         intervalSeconds: 5
+  restore:
+    prepareData:
+      image: $(POLARDB_PG_IMAGE)
+      command:
+        - /bin/bash
+        - -c
+        - |
+          {{- .Files.Get "dataprotection/pg-basebackup-restore.sh" | nindent 10 }}

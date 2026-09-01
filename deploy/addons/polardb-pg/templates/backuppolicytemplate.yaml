@@ -21,6 +21,14 @@ spec:
         - name: polar-pg-basebackup
           actionSetName: {{ include "polardbPg.resourceName" (dict "suffix" "basebackup" "Values" .Values) }}
           snapshotVolumes: false
+          # KubeBlocks uses this mapping to build the Restore prepare Job and
+          # mount the target PVC at the same path as the database runtime.
+          # The backup ActionSet streams through the database protocol, so it
+          # remains safe to run away from the target Pod node.
+          targetVolumes:
+            volumeMounts:
+              - name: data
+                mountPath: {{ .Values.dataMountPath }}
       schedules:
         - backupMethod: polar-pg-basebackup
           cronExpression: {{ .Values.backup.schedule.cronExpression | quote }}

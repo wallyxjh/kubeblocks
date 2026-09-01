@@ -63,6 +63,25 @@ spec:
             value: $(POSTGRES_USER)
           - name: POLARDB_PASSWORD
             value: $(POSTGRES_PASSWORD)
+        command:
+          - /bin/bash
+          - -ec
+          - |
+            data_dir="{{ .Values.dataMountPath }}/primary_datadir"
+            replica_dir="{{ .Values.dataMountPath }}/replica_datadir1"
+
+            # The official local-instance entrypoint always starts its bundled
+            # local replica. A physical base backup intentionally contains
+            # only the primary data directory, so boot that recovered primary
+            # directly instead of falsely treating the missing demo replica as
+            # a failed recovery. Empty volumes retain the official init path.
+            if [[ -f "${data_dir}/PG_VERSION" && ! -d "${replica_dir}" ]]; then
+              trap '/u01/polardb_pg/bin/pg_ctl -D "${data_dir}" stop -m fast || true' EXIT INT TERM
+              /u01/polardb_pg/bin/pg_ctl -D "${data_dir}" -w start -o '--cluster-name=primary'
+              while true; do sleep 3600 & wait $!; done
+            fi
+
+            exec /home/postgres/docker-entrypoint.sh postgres
         lifecycle:
           postStart:
             exec:

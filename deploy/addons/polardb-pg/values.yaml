@@ -11,7 +11,7 @@ image:
 componentDefinition:
   # ComponentDefinitions are immutable in KubeBlocks 0.9. Change this name for
   # any incompatible engine or runtime change.
-  name: polardb-pg-local-v3
+  name: polardb-pg-local-v4
 
 dataMountPath: /var/polardb
 
@@ -41,3 +41,17 @@ backup:
     enabled: false
     cronExpression: "0 2 * * *"
     retentionPeriod: 7d
+
+# Alert rules are opt-in because the target cluster must scrape the referenced
+# kube-state-metrics custom-resource metrics. Enable vmRule for VictoriaMetrics
+# VMAlert or prometheusRule for a Prometheus Operator deployment.
+alertRule:
+  backupFailureMinutes: 15
+  restoreDrillFailureMinutes: 15
+  opsFailureMinutes: 5
+
+prometheusRule:
+  enabled: false
+
+vmRule:
+  enabled: false
