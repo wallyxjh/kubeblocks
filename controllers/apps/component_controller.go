@@ -140,6 +140,10 @@ func (h *componentReconcileEventHandler) enqueue(ctx context.Context, obj client
 // read only + watch access
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
 
+// component-owned disruption budgets
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;update;patch;delete;deletecollection
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets/finalizers,verbs=update
+
 // +kubebuilder:rbac:groups=apps.kubeblocks.io,resources=componentresourceconstraints,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps.kubeblocks.io,resources=opsrequests,verbs=get;list;watch;create
 
@@ -247,6 +251,9 @@ func (r *ComponentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if errBuild != nil {
 		return requeueError(errBuild)
 	}
+	if c, ok := planBuilder.(*componentPlanBuilder); ok && shouldRequeuePendingPolarDBPostgreSQLComponent(c.transCtx.Component) {
+		return intctrlutil.RequeueAfter(requeueDuration, reqCtx.Log, "wait PolarDB PostgreSQL component status")
+	}
 	return intctrlutil.Reconciled()
 }
 
@@ -271,6 +278,7 @@ func (r *ComponentReconciler) setupWithManager(mgr ctrl.Manager) error {
 		WatchesRawSource(&source.Channel{Source: componentReconcileEventCh}, &componentReconcileEventHandler{}).
 		Watches(&appsv1alpha1.Cluster{}, handler.EnqueueRequestsFromMapFunc(r.clusterEventHandler)).
 		Owns(&workloads.InstanceSet{}).
+		Watches(&workloads.InstanceSet{}, handler.EnqueueRequestsFromMapFunc(r.polarDBPostgreSQLWorkloadEventHandler)).
 		Owns(&corev1.Service{}).
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.ConfigMap{}).
@@ -305,6 +313,7 @@ func (r *ComponentReconciler) setupWithMultiClusterManager(mgr ctrl.Manager, mul
 		WatchesRawSource(&source.Channel{Source: componentReconcileEventCh}, &componentReconcileEventHandler{}).
 		Watches(&appsv1alpha1.Cluster{}, handler.EnqueueRequestsFromMapFunc(r.clusterEventHandler)).
 		Owns(&workloads.InstanceSet{}).
+		Watches(&workloads.InstanceSet{}, handler.EnqueueRequestsFromMapFunc(r.polarDBPostgreSQLWorkloadEventHandler)).
 		Owns(&dpv1alpha1.Backup{}).
 		Owns(&dpv1alpha1.Restore{}).
 		Watches(&appsv1alpha1.Configuration{}, handler.EnqueueRequestsFromMapFunc(r.configurationEventHandler))
@@ -381,6 +390,18 @@ func (r *ComponentReconciler) filterComponentResources(ctx context.Context, obj 
 	}
 }
 
+func (r *ComponentReconciler) polarDBPostgreSQLWorkloadEventHandler(ctx context.Context, obj client.Object) []reconcile.Request {
+	if obj == nil || obj.GetDeletionTimestamp() != nil {
+		return nil
+	}
+	labels := obj.GetLabels()
+	if !isPolarDBPostgreSQLCompDef(labels[constant.ComponentDefinitionLabelKey]) &&
+		!isPolarDBPostgreSQLCompDef(labels[constant.AppComponentLabelKey]) {
+		return nil
+	}
+	return r.filterComponentResources(ctx, obj)
+}
+
 func enqueueComponentReconcileEvent(obj client.Object) bool {
 	if obj == nil {
 		return false
@@ -409,6 +430,22 @@ func isPolarDBPostgreSQLComponent(comp *appsv1alpha1.Component) bool {
 		return true
 	}
 	return isPolarDBPostgreSQLCompDef(comp.GetLabels()[constant.ComponentDefinitionLabelKey])
+}
+
+func shouldRequeuePendingPolarDBPostgreSQLComponent(comp *appsv1alpha1.Component) bool {
+	if !isPolarDBPostgreSQLComponent(comp) || comp.GetDeletionTimestamp() != nil {
+		return false
+	}
+	switch comp.Status.Phase {
+	case appsv1alpha1.RunningClusterCompPhase,
+		appsv1alpha1.StoppedClusterCompPhase,
+		appsv1alpha1.FailedClusterCompPhase,
+		appsv1alpha1.AbnormalClusterCompPhase,
+		appsv1alpha1.DeletingClusterCompPhase:
+		return false
+	default:
+		return true
+	}
 }
 
 func (r *ComponentReconciler) clusterEventHandler(ctx context.Context, obj client.Object) []reconcile.Request {
