@@ -269,13 +269,17 @@ func (c *clusterPlanBuilder) enqueueComponentReconcileEvent(node *model.ObjectVe
 		return
 	}
 	comp, ok := node.Obj.(*appsv1alpha1.Component)
-	if !ok || !isPolarDBPostgreSQLComponent(comp) {
+	if !ok {
 		return
 	}
 	if !enqueueComponentReconcileEvent(comp) {
 		c.transCtx.Logger.V(1).Info("component reconcile event channel is full", "component", client.ObjectKeyFromObject(comp))
 	}
 	c.transCtx.Logger.V(1).Info("enqueued component reconcile event", "component", client.ObjectKeyFromObject(comp), "action", *node.Action)
+	// The direct retry is specific to the PolarDB PostgreSQL builtin handler.
+	if !isPolarDBPostgreSQLComponent(comp) {
+		return
+	}
 	c.triggerComponentReconcile(comp)
 }
 
