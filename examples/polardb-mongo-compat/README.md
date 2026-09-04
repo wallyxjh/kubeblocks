@@ -1,10 +1,13 @@
-# PolarDB Mongo 兼容版（版本 B）
+# PolarDB Mongo Compatibility (Version B)
 
-这个示例演示的是版本 B：`FerretDB` 作为 MongoDB 协议前端，后端用 PostgreSQL + DocumentDB extension 承载数据。
+This example implements Version B: `FerretDB` exposes a MongoDB-compatible
+protocol while PostgreSQL with the DocumentDB extension stores the data.
 
-生产环境里，后端应替换成可运行 DocumentDB extension 的 HA PostgreSQL-compatible 底座。若选择 PolarDB-PG，需要先验证 DocumentDB extension 与目标内核版本兼容。
+For production, replace the backend with an HA PostgreSQL-compatible platform
+that supports the DocumentDB extension. When that platform is PolarDB-PG, first
+validate extension compatibility against the target kernel version.
 
-## 创建
+## Create
 
 ```bash
 kubectl apply -f examples/polardb-mongo-compat/install.yaml
@@ -12,9 +15,11 @@ kubectl apply -f examples/polardb-mongo-compat/install.yaml
 kubectl wait --for=condition=Ready cluster/polardb-mongo-compat-sample --timeout=30m
 ```
 
-如果你想换成别的 cluster 名字，需要同步修改 `install.yaml` 中的 Cluster、PDB、账号 Secret 名和 `kubectl wait` 对象名。前端到后端的地址通过 `serviceVarRef` 注入，不需要手工改后端 Service 名。
+To use another Cluster name, update the Cluster, PDB, account Secret, and
+`kubectl wait` object names in `install.yaml`. Frontend-to-backend addressing is
+injected through `serviceVarRef`; no backend Service name needs manual changes.
 
-## 连接
+## Connect
 
 ```bash
 USER=$(kubectl get secret polardb-mongo-compat-sample-documentdb-account-ferretdb -o jsonpath='{.data.username}' | base64 -d)
@@ -26,9 +31,9 @@ DB=kbcompat
 mongosh "mongodb://${USER}:${PASS}@${HOST}:${PORT}/${DB}?authMechanism=SCRAM-SHA-256&authSource=postgres"
 ```
 
-## 验证
+## Verify
 
-运行内置 smoke Job：
+Run the bundled smoke Job:
 
 ```bash
 kubectl apply -f examples/polardb-mongo-compat/smoke-mongosh-job.yaml
@@ -36,9 +41,12 @@ kubectl wait --for=condition=complete job/polardb-mongo-compat-smoke --timeout=5
 kubectl logs job/polardb-mongo-compat-smoke
 ```
 
-## KubeBlocks 原生备份与恢复
+## Native KubeBlocks Backup and Restore
 
-`install.yaml` 会注册 `mongodump` ActionSet 和 BackupPolicyTemplate。Cluster 创建后，KubeBlocks 自动生成 `polardb-mongo-compat-sample-documentdb-backup-policy`，因此备份会产生标准 `Backup` CR 并写入默认 `BackupRepo`。
+`install.yaml` registers the `mongodump` ActionSet and BackupPolicyTemplate.
+Once the Cluster is created, KubeBlocks creates
+`polardb-mongo-compat-sample-documentdb-backup-policy`. Backups therefore
+produce standard `Backup` resources and write to the default `BackupRepo`.
 
 ### kbcli
 
@@ -69,7 +77,9 @@ kubectl wait --for=jsonpath='{.status.phase}'=Completed backup/polardb-mongo-com
 kubectl get backup polardb-mongo-compat-sample-backup
 ```
 
-恢复使用新 Cluster，而不是向原 Cluster 覆盖导入。它会在 DocumentDB 和 FerretDB 都已就绪后自动创建标准 `Restore` CR 与 post-ready Job：
+Restore targets a new Cluster rather than importing over the source Cluster. The
+workflow creates a standard `Restore` resource and a post-ready Job after both
+DocumentDB and FerretDB are ready:
 
 ```bash
 kubectl apply -f examples/polardb-mongo-compat/restore.yaml
@@ -77,9 +87,17 @@ kubectl wait --for=condition=Ready cluster/polardb-mongo-compat-restored --timeo
 kubectl get restore -n default
 ```
 
-这个逻辑备份使用 `mongodump --archive --gzip`，恢复使用 `mongorestore --drop`。恢复 Job 使用目标 Cluster 自己的 `ferretdb` 系统账号，不依赖源 Cluster 的 Secret。它覆盖 dump 中的 namespace，因此 `restore.yaml` 只应用于新建且可清空的目标 Cluster。该流程是 KubeBlocks 原生 `Backup` / `Restore` 生命周期，但数据一致性仍是 MongoDB 逻辑导出的边界：不提供事务一致快照、增量备份、PITR、oplog 或 `rs.*` 语义。
+The logical backup uses `mongodump --archive --gzip`; restore uses
+`mongorestore --drop`. The restore Job uses the target Cluster's own `ferretdb`
+system account and does not depend on the source Cluster Secret. It overwrites
+namespaces contained in the dump, so apply `restore.yaml` only to a new, empty
+target Cluster.
 
-也可以手工验证：
+This is the native KubeBlocks `Backup`/`Restore` lifecycle, but logical MongoDB
+exports do not provide transaction-consistent snapshots, incremental backups,
+PITR, oplog semantics, or `rs.*` semantics.
+
+You can also verify the API manually:
 
 ```javascript
 db.version()
@@ -89,15 +107,24 @@ db.demo.updateOne({ name: "polardb-mongo-compat" }, { $set: { checked: true } })
 db.demo.countDocuments()
 ```
 
-匿名连接只能完成 `ping` / `hello` 这类握手命令，业务读写必须带账号，并使用 `SCRAM-SHA-256`。
+Anonymous connections can perform handshake commands such as `ping` and `hello`.
+Business reads and writes require credentials with `SCRAM-SHA-256`.
 
-## 说明
+## Scope
 
-- 前端端口是 `27017`，对外按 MongoDB URI 暴露。
-- 后端端口是 `5432`，只在集群内部被 FerretDB 访问。
-- 这个示例只负责把版本 B 的编排和连接关系固定下来，不承诺原生 MongoDB 全语义。
-- 当前示例后端是单副本 DocumentDB-compatible PostgreSQL，用于验证编排、连接和兼容边界；生产环境需要替换成 HA PostgreSQL-compatible 后端。
-- 已验证兼容项包括基础 CRUD、索引、简单聚合、`distinct`、`mongosh`、PyMongo、Go driver 和 `mongodump` / `mongorestore`。
-- 不兼容或不能按原生 MongoDB 承诺的项包括 `rs.*`、事务提交、`createRole` / `grantRolesToUser` / `getRoles` 和完整分片语义。
-- 技术方案见 `docs/polardb-mongo-ferretdb-technical-solution-zh.md`。
-- 部署与测试指南见 `docs/polardb-mongo-ferretdb-deployment-test-guide-zh.md`。
+- The frontend listens on `27017` and is exposed through a MongoDB URI.
+- The PostgreSQL backend listens on `5432` and is used only by FerretDB inside
+  the Cluster.
+- The example fixes Version B orchestration and connectivity. It does not claim
+  full native MongoDB semantics.
+- The example backend is a single DocumentDB-compatible PostgreSQL replica for
+  validating orchestration, connectivity, and compatibility boundaries. A
+  production deployment requires an HA PostgreSQL-compatible backend.
+- Verified compatibility includes CRUD, indexes, simple aggregation, `distinct`,
+  `mongosh`, PyMongo, the Go driver, and `mongodump`/`mongorestore`.
+- Unsupported or non-native guarantees include `rs.*`, transaction commit,
+  `createRole`, `grantRolesToUser`, `getRoles`, and full sharding semantics.
+- See `docs/polardb-mongo-ferretdb-technical-solution-zh.md` for the Chinese
+  architecture document and
+  `docs/polardb-mongo-ferretdb-deployment-test-guide-zh.md` for the Chinese
+  deployment and test guide.
