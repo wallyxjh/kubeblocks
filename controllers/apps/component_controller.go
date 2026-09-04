@@ -145,6 +145,7 @@ func (h *componentReconcileEventHandler) enqueue(ctx context.Context, obj client
 // +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets/finalizers,verbs=update
 
 // +kubebuilder:rbac:groups=apps.kubeblocks.io,resources=componentresourceconstraints,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps.kubeblocks.io,resources=configconstraints,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps.kubeblocks.io,resources=opsrequests,verbs=get;list;watch;create
 
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
