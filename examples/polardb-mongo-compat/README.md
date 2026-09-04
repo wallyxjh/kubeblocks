@@ -122,6 +122,8 @@ Business reads and writes require credentials with `SCRAM-SHA-256`.
   production deployment requires an HA PostgreSQL-compatible backend.
 - Verified compatibility includes CRUD, indexes, simple aggregation, `distinct`,
   `mongosh`, PyMongo, the Go driver, and `mongodump`/`mongorestore`.
+- `createUser` with the built-in `readWrite` role was validated. KubeBlocks
+  account lifecycle commands are not an account-management interface here.
 - Unsupported or non-native guarantees include `rs.*`, transaction commit,
   `createRole`, `grantRolesToUser`, `getRoles`, and full sharding semantics.
 - See `docs/polardb-mongo-ferretdb-technical-solution-zh.md` for the Chinese

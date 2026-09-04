@@ -52,7 +52,14 @@ FerretDB 后端地址通过 serviceVarRef 注入，账号通过 credentialVarRef
 mongodb://<user>:<password>@<cluster>-ferretdb:27017/<database>?authMechanism=SCRAM-SHA-256&authSource=postgres
 ~~~
 
-ferretdb 系统账号实际由 PostgreSQL 保存，因此认证库是 postgres。业务请求必须使用 SCRAM-SHA-256 认证。MongoDB 原生角色、复制集和分片命令不属于兼容承诺。
+ferretdb 系统账号实际由 PostgreSQL 保存，因此认证库是 postgres。业务请求必须使用 SCRAM-SHA-256 认证。
+
+账户和角色能力必须区分处理：实测 `db.createUser()` 可以创建用户，使用内置 `readWrite`
+角色的用户能够完成认证和写入；但 `createRole` 和 `grantRolesToUser` 返回 `no such command`。
+因此不承诺自定义角色、动态授予角色、角色枚举或完整 MongoDB RBAC 语义。当前
+ComponentDefinition 也没有定义业务账户生命周期动作，不能通过 `kbcli cluster create-account`
+或 `list-accounts` 管理业务用户。用户创建应通过受控的 MongoDB API 自动化完成，并把
+自定义角色需求放在应用或 PostgreSQL-compatible 后端的访问控制设计中处理。
 
 ## 原生备份与恢复
 
@@ -120,4 +127,8 @@ Kubernetes label value 最大为 63 字符。KubeBlocks 的 Restore Job 以前�
 | KubeBlocks Restore CR | 已验证 |
 | kbcli cluster backup / kbcli cluster restore | 已验证 |
 | mongodump / mongorestore | 已验证 |
-| MongoDB 角色、复制集、事务、分片 | 不承诺 |
+| `db.createUser` + 内置 `readWrite` 角色 | 已验证 |
+| `createRole`、`grantRolesToUser`、自定义角色 | 不支持 |
+| KubeBlocks HorizontalScaling、VerticalScaling、Restart、Stop/Start、Expose、Delete | 已验证 |
+| MongoDB 副本集切换、MongoDB 参数重配、升级/回滚 | 不支持或未提供版本发布物 |
+| MongoDB 事务、复制集、分片 | 不承诺 |
