@@ -7,6 +7,7 @@
 | addon | 数据面 | 当前承诺 |
 | --- | --- | --- |
 | `polardb-pg` | `polardb/polardb_pg_local_instance` | PolarDB-PG 本地实例、物理备份/恢复和 KubeBlocks 生命周期操作；单副本 localfs，不是共享存储 HA。 |
+| `polardb-pg-stack-ops` | 官方 PolarDB Stack `MPDCluster` + Cluster Manager | 零副本 KubeBlocks 控制投影，提供 switchover、rejoin、rebuild 和物理 fencing 的 Custom Ops 桥接；数据库、共享存储和角色仍由官方 Stack 控制。 |
 | `polardb-mongo-compat` | FerretDB + PostgreSQL DocumentDB | MongoDB wire protocol/驱动兼容入口、DocumentDB 持久化、逻辑备份/恢复和前端扩缩容。 |
 
 `polardb-mongo-compat` 是版本 B，不是 Alibaba Cloud PolarDB for MySQL document database 控制面，也不复用 KubeBlocks 原生 `mongodb` addon。名称特意保留 `compat`，避免将协议兼容误解成原生 MongoDB 或 PolarDB for MySQL 的完整产品语义。
@@ -31,7 +32,7 @@ PolarDB-PG local instance (1 replica + PVC)
 KubeBlocks BackupRepo
 ```
 
-Mongo 兼容版的 FerretDB 前端可横向扩容；后端当前固定为单副本。PolarDB-PG addon 使用 PolarDB-PG local instance 镜像，并将物理数据目录交给 `pg_basebackup --polardata` 备份。真正的 PolarDB-PG 共享存储主备、故障仲裁和跨节点高可用，需要外部 PolarDB/Stack Operator 数据面与相应 CRD；该控制面没有部署到本次 KB 0.8 单节点测试环境，因此不在本次验收承诺内。
+Mongo 兼容版的 FerretDB 前端可横向扩容；后端当前固定为单副本。PolarDB-PG addon 使用 PolarDB-PG local instance 镜像，并将物理数据目录交给 `pg_basebackup --polardata` 备份。真正的 PolarDB-PG 共享存储主备、故障仲裁和跨节点高可用，需要外部 PolarDB/Stack Operator 数据面与相应 CRD。`polardb-pg-stack-ops` 将 KubeBlocks 0.8 的 Custom Ops 映射到官方 `MPDCluster` 注解，但不创建或接管数据平面。单节点测试环境只能验证该 API contract，不能构成生产 HA 验收。
 
 ## KubeBlocks 0.8 适配
 
@@ -48,6 +49,7 @@ Mongo 兼容版的 FerretDB 前端可横向扩容；后端当前固定为单副�
 - 将 `polardb-pg` 的 `backup.replicationHbaCIDR` 从测试默认 `0.0.0.0/0` 收敛到实际 Pod CIDR；不要把测试默认值直接带入生产。
 - 默认存储类必须满足数据持久化要求。测试集群的 `openebs-hostpath` 不支持扩容，因此卷扩容不在本版本验收范围内。
 - 在生产变更前执行恢复演练、滚动重启、节点故障演练、容量压测和 addon 镜像/Chart 签名验证。
+- 使用 `polardb-pg-stack-ops` 时，还必须验收官方 Stack 的共享存储、Cluster Manager、真实 STONITH provider、WAL 归档和隔离恢复；不要把 `polardb-pg` local-instance 的 `pg_basebackup` 用于 `MPDCluster`。
 
 ## Mongo 兼容性承诺
 
