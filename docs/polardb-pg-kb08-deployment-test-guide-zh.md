@@ -2,6 +2,8 @@
 
 本 addon 使用 `polardb/polardb_pg_local_instance`。它在 KubeBlocks 0.8 上提供 PolarDB-PG local instance、物理备份恢复和基础生命周期操作，但当前固定单副本 localfs，不能被描述为 PolarDB-PG 生产高可用部署。
 
+需要真实共享存储 PolarDB-PG HA 时，使用独立的 `polardb-pg-stack-ops` addon 对接官方 Stack Operator 和 Cluster Manager。它不会复用或扩容本 addon 的 localfs PVC；部署边界见 [Stack HA 技术方案](polardb-pg-stack-ops-kb08-technical-solution-zh.md)。
+
 ## 安装与创建
 
 ```bash
