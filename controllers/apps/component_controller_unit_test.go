@@ -23,12 +23,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	appsv1alpha1 "github.com/apecloud/kubeblocks/apis/apps/v1alpha1"
 	workloads "github.com/apecloud/kubeblocks/apis/workloads/v1alpha1"
 	"github.com/apecloud/kubeblocks/pkg/constant"
+	"github.com/apecloud/kubeblocks/pkg/controller/model"
 )
 
 func TestIsIgnoredComponentPodUpdate(t *testing.T) {
@@ -255,5 +257,49 @@ func TestShouldRequeuePendingPolarDBPostgreSQLComponent(t *testing.T) {
 				t.Fatalf("shouldRequeuePendingPolarDBPostgreSQLComponent() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestClusterPlanBuilderEnqueuesNonPolarDBComponentReconcileEvent(t *testing.T) {
+	drainEvents := func() {
+		for {
+			select {
+			case <-componentReconcileEventCh:
+			default:
+				return
+			}
+		}
+	}
+	drainEvents()
+	t.Cleanup(drainEvents)
+
+	action := model.CREATE
+	component := &appsv1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "polardb-mongo-compat-documentdb",
+			Namespace: "default",
+		},
+		Spec: appsv1alpha1.ComponentSpec{
+			CompDef: "polardb-mongo-documentdb",
+		},
+	}
+	builder := &clusterPlanBuilder{
+		transCtx: &clusterTransformContext{Logger: logr.Discard()},
+	}
+	builder.enqueueComponentReconcileEvent(&model.ObjectVertex{
+		Obj:    component,
+		Action: &action,
+	})
+
+	select {
+	case reconcileEvent := <-componentReconcileEventCh:
+		if got, want := reconcileEvent.Object.GetNamespace(), component.Namespace; got != want {
+			t.Fatalf("component reconcile event namespace = %q, want %q", got, want)
+		}
+		if got, want := reconcileEvent.Object.GetName(), component.Name; got != want {
+			t.Fatalf("component reconcile event name = %q, want %q", got, want)
+		}
+	default:
+		t.Fatal("expected a component reconcile event for a non-PolarDB PostgreSQL component")
 	}
 }
