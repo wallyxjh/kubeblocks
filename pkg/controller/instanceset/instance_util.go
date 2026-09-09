@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 
+	appsv1alpha1 "github.com/apecloud/kubeblocks/apis/apps/v1alpha1"
 	"github.com/klauspost/compress/zstd"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -195,7 +196,7 @@ func isRoleReady(pod *corev1.Pod, roles []workloads.ReplicaRole) bool {
 	return ok
 }
 
-// isImageMatched returns true if all container statuses have same image as defined in pod spec
+// isImageMatched returns true if all container statuses refer to the image defined in pod spec.
 func isImageMatched(pod *corev1.Pod) bool {
 	for _, container := range pod.Spec.Containers {
 		index := slices.IndexFunc(pod.Status.ContainerStatuses, func(status corev1.ContainerStatus) bool {
@@ -205,29 +206,49 @@ func isImageMatched(pod *corev1.Pod) bool {
 			continue
 		}
 		specImage := container.Image
-		statusImage := pod.Status.ContainerStatuses[index].Image
+		containerStatus := pod.Status.ContainerStatuses[index]
+		statusImage := containerStatus.Image
 		// Image in status may not match the image used in the PodSpec.
 		// More info: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodStatus
-		specName, specTag, specDigest := imageSplit(specImage)
-		statusName, statusTag, statusDigest := imageSplit(statusImage)
-		// if digest presents in spec, it must be same in status
-		if len(specDigest) != 0 && specDigest != statusDigest {
-			return false
-		}
-		// if tag presents in spec, it must be same in status
-		if len(specTag) != 0 && specTag != statusTag {
-			return false
-		}
-		// otherwise, statusName should be same as or has suffix of specName
-		if specName != statusName {
-			specNames := strings.Split(specName, "/")
-			statusNames := strings.Split(statusName, "/")
-			if specNames[len(specNames)-1] != statusNames[len(statusNames)-1] {
+		specName, specTag, specDigest := imageSplit(normalizeImageReference(specImage))
+		statusName, statusTag, statusDigest := imageSplit(normalizeImageReference(statusImage))
+		_, _, statusImageIDDigest := imageSplit(normalizeImageReference(containerStatus.ImageID))
+		if len(specDigest) != 0 {
+			// A digest-pinned image is identified by ImageID. Some runtimes report
+			// status.Image as a local, bare sha256 reference, which has no repository
+			// name to compare with the PodSpec.
+			if specDigest != statusDigest && specDigest != statusImageIDDigest {
 				return false
 			}
+			continue
+		}
+		if !imageNameMatched(specName, statusName) {
+			return false
+		}
+		// Runtime may report any tag associated with the resolved image ID. When no digest is
+		// available, keep the old strict tag check to avoid counting a stale image as ready.
+		if len(specTag) != 0 && len(statusTag) != 0 && specTag != statusTag &&
+			len(statusDigest) == 0 && len(statusImageIDDigest) == 0 {
+			return false
 		}
 	}
 	return true
+}
+
+func normalizeImageReference(imageName string) string {
+	if idx := strings.Index(imageName, "://"); idx >= 0 {
+		return imageName[idx+3:]
+	}
+	return imageName
+}
+
+func imageNameMatched(specName, statusName string) bool {
+	if specName == statusName {
+		return true
+	}
+	specNames := strings.Split(specName, "/")
+	statusNames := strings.Split(statusName, "/")
+	return specNames[len(specNames)-1] == statusNames[len(statusNames)-1]
 }
 
 // imageSplit separates and returns the name and tag parts
@@ -685,13 +706,7 @@ func copyAndMerge(oldObj, newObj client.Object) client.Object {
 	copyAndMergePVC := func(oldPVC, newPVC *corev1.PersistentVolumeClaim) client.Object {
 		mergeMap(&newPVC.Annotations, &oldPVC.Annotations)
 		mergeMap(&newPVC.Labels, &oldPVC.Labels)
-
-		// Clear any ownerReference from PVC to prevent owner mismatch issues
-		if len(oldPVC.GetOwnerReferences()) > 0 {
-			fmt.Printf("[PVC-FIX] Clearing ownerReference from PVC %s/%s\n",
-				oldPVC.Namespace, oldPVC.Name)
-			oldPVC.SetOwnerReferences(nil)
-		}
+		oldPVC.SetOwnerReferences(removeStaleAppsOwnerReferences(oldPVC.GetOwnerReferences()))
 
 		// resources.request.storage and accessModes support in-place update.
 		// resources.request.storage only supports volume expansion.
@@ -727,6 +742,29 @@ func copyAndMerge(oldObj, newObj client.Object) client.Object {
 		return copyAndMergePVC(targetObj.(*corev1.PersistentVolumeClaim), o)
 	default:
 		return newObj
+	}
+}
+
+func removeStaleAppsOwnerReferences(refs []metav1.OwnerReference) []metav1.OwnerReference {
+	if len(refs) == 0 {
+		return refs
+	}
+	retained := make([]metav1.OwnerReference, 0, len(refs))
+	for _, ref := range refs {
+		if isStaleAppsOwnerReference(ref) {
+			continue
+		}
+		retained = append(retained, ref)
+	}
+	return retained
+}
+
+func isStaleAppsOwnerReference(ref metav1.OwnerReference) bool {
+	switch ref.Kind {
+	case appsv1alpha1.ComponentKind, appsv1alpha1.ClusterKind:
+		return strings.HasPrefix(ref.APIVersion, "apps.kubeblocks.io/")
+	default:
+		return false
 	}
 }
 

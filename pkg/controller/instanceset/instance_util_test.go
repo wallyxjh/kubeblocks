@@ -350,18 +350,46 @@ var _ = Describe("instance util test", func() {
 			Expect(equalBasicInPlaceFields(pod.(*corev1.Pod), newPod)).Should(BeTrue())
 
 			By("merge pvc")
+			controller := true
 			oldPvc := builder.NewPVCBuilder(namespace, name).
 				SetResources(corev1.ResourceRequirements{Requests: map[corev1.ResourceName]resource.Quantity{
 					corev1.ResourceStorage: resource.MustParse("1G"),
 				}}).
 				GetObject()
+			oldPvc.OwnerReferences = []metav1.OwnerReference{
+				{
+					APIVersion: "apps.kubeblocks.io/v1alpha1",
+					Kind:       "Cluster",
+					Name:       "cluster",
+					Controller: &controller,
+				},
+				{
+					APIVersion: "apps.kubeblocks.io/v1alpha1",
+					Kind:       "Component",
+					Name:       "component",
+				},
+				{
+					APIVersion: workloads.GroupVersion.String(),
+					Kind:       workloads.Kind,
+					Name:       "instanceset",
+				},
+			}
 			newPvc := builder.NewPVCBuilder(namespace, name).
 				SetResources(corev1.ResourceRequirements{Requests: map[corev1.ResourceName]resource.Quantity{
 					corev1.ResourceStorage: resource.MustParse("2G"),
 				}}).
 				GetObject()
 			pvc := copyAndMerge(oldPvc, newPvc)
-			Expect(pvc).Should(Equal(newPvc))
+			mergedPVC, ok := pvc.(*corev1.PersistentVolumeClaim)
+			Expect(ok).Should(BeTrue())
+			Expect(mergedPVC.Spec).Should(Equal(newPvc.Spec))
+			Expect(mergedPVC.OwnerReferences).Should(Equal([]metav1.OwnerReference{
+				{
+					APIVersion: workloads.GroupVersion.String(),
+					Kind:       workloads.Kind,
+					Name:       "instanceset",
+				},
+			}))
 
 			By("merge other kind(secret)")
 			oldSecret := builder.NewSecretBuilder(namespace, name).
@@ -1418,10 +1446,53 @@ var _ = Describe("instance util test", func() {
 			}}
 			Expect(isImageMatched(pod)).Should(BeFalse())
 
-			By("tag not matches")
+			By("same digest with tag alias")
 			pod.Spec.Containers = []corev1.Container{{
 				Name:  name,
 				Image: "nginx:xxxx@0f37a86c04f8",
+			}}
+			pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+				Name:  name,
+				Image: "docker.io/nginx:latest@0f37a86c04f8",
+			}}
+			Expect(isImageMatched(pod)).Should(BeTrue())
+
+			By("tag alias reported with image ID digest")
+			pod.Spec.Containers = []corev1.Container{{
+				Name:  name,
+				Image: "ghcr.io/wallyxjh/kubeblocks-tools:polardb-pg-ha-handler-pr-b59e7b46a",
+			}}
+			pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+				Name:    name,
+				Image:   "ghcr.io/wallyxjh/kubeblocks-tools:codex-polardb-pg-ha-handler-pr-4fbca157f",
+				ImageID: "ghcr.io/wallyxjh/kubeblocks-tools@sha256:6882abea7099081c81f26fdcdb1d664467bc614ff89253f83501fad5fe9a5e72",
+			}}
+			Expect(isImageMatched(pod)).Should(BeTrue())
+
+			By("digest-pinned image accepts a local status image when image ID matches")
+			pod.Spec.Containers = []corev1.Container{{
+				Name:  name,
+				Image: "ghcr.io/wallyxjh/kubeblocks-tools@sha256:6882abea7099081c81f26fdcdb1d664467bc614ff89253f83501fad5fe9a5e72",
+			}}
+			pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+				Name:    name,
+				Image:   "sha256:be7d2b839539d6dd374758b98b7532167b8a9294c71d247771ac10777370ba70",
+				ImageID: "ghcr.io/wallyxjh/kubeblocks-tools@sha256:6882abea7099081c81f26fdcdb1d664467bc614ff89253f83501fad5fe9a5e72",
+			}}
+			Expect(isImageMatched(pod)).Should(BeTrue())
+
+			By("digest-pinned image rejects a local status image with a different image ID")
+			pod.Status.ContainerStatuses[0].ImageID = "ghcr.io/wallyxjh/kubeblocks-tools@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			Expect(isImageMatched(pod)).Should(BeFalse())
+
+			By("tag mismatch without digest evidence")
+			pod.Spec.Containers = []corev1.Container{{
+				Name:  name,
+				Image: "nginx:stable",
+			}}
+			pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+				Name:  name,
+				Image: "docker.io/nginx:latest",
 			}}
 			Expect(isImageMatched(pod)).Should(BeFalse())
 
