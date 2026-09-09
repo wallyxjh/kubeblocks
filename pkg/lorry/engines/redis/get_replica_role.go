@@ -30,8 +30,12 @@ import (
 
 func (mgr *Manager) GetReplicaRole(ctx context.Context, _ *dcs.Cluster) (string, error) {
 	// To ensure that the role information obtained through subscription is always delivered.
-	if mgr.role != "" && mgr.roleSubscribeUpdateTime+mgr.roleProbePeriod*2 < time.Now().Unix() {
-		return mgr.role, nil
+	mgr.roleMu.Lock()
+	subscribedRole := mgr.role
+	roleSubscribeUpdateTime := mgr.roleSubscribeUpdateTime
+	mgr.roleMu.Unlock()
+	if subscribedRole != "" && roleSubscribeUpdateTime+mgr.roleProbePeriod*2 < time.Now().Unix() {
+		return mgr.observeRole(subscribedRole), nil
 	}
 
 	// when we can't get role from sentinel, we query redis instead
@@ -60,21 +64,23 @@ func (mgr *Manager) GetReplicaRole(ctx context.Context, _ *dcs.Cluster) (string,
 	}
 
 	if mgr.sentinelClient == nil {
-		return getRoleFromRedisClient()
+		role, err := getRoleFromRedisClient()
+		return mgr.observeRole(role), err
 	}
 
 	// We use the role obtained from Sentinel as the sole source of truth.
 	masterAddr, err := mgr.sentinelClient.GetMasterAddrByName(ctx, mgr.ClusterCompName).Result()
 	if err != nil {
-		return getRoleFromRedisClient()
+		role, redisErr := getRoleFromRedisClient()
+		return mgr.observeRole(role), redisErr
 	}
 
 	masterName := strings.Split(masterAddr[0], ".")[0]
 	// if current member is not master from sentinel, just return secondary to avoid double master
 	if masterName != mgr.CurrentMemberName {
-		return models.SECONDARY, nil
+		return mgr.observeRole(models.SECONDARY), nil
 	}
-	return models.PRIMARY, nil
+	return mgr.observeRole(models.PRIMARY), nil
 }
 
 func (mgr *Manager) SubscribeRoleChange(ctx context.Context) {
@@ -87,13 +93,21 @@ func (mgr *Manager) SubscribeRoleChange(ctx context.Context) {
 	for msg := range ch {
 		// +switch-master <master name> <old ip> <old port> <new ip> <new port>
 		masterAddr := strings.Split(msg.Payload, " ")
+		if len(masterAddr) < 5 {
+			mgr.Logger.Info("ignoring invalid Redis switch-master event", "payload", msg.Payload)
+			continue
+		}
 		masterName := strings.Split(masterAddr[3], ".")[0]
 
+		role := models.SECONDARY
 		if masterName == mgr.CurrentMemberName {
-			mgr.role = models.PRIMARY
-		} else {
-			mgr.role = models.SECONDARY
+			role = models.PRIMARY
 		}
+
+		mgr.roleMu.Lock()
+		mgr.role = role
 		mgr.roleSubscribeUpdateTime = time.Now().Unix()
+		mgr.roleMu.Unlock()
+		mgr.observeRole(role)
 	}
 }

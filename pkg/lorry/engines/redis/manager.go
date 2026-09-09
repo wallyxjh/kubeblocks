@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -46,9 +47,12 @@ type Manager struct {
 	clientSettings *Settings
 	sentinelClient *redis.SentinelClient
 
+	roleMu                  sync.Mutex
 	role                    string
 	roleSubscribeUpdateTime int64
 	roleProbePeriod         int64
+	observedRole            string
+	roleGeneration          uint64
 }
 
 var _ engines.DBManager = &Manager{}
