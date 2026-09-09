@@ -22,6 +22,7 @@ package redis
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -45,6 +46,10 @@ type Manager struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	startAt time.Time
+
+	roleMu         sync.Mutex
+	observedRole   string
+	roleGeneration uint64
 }
 
 var _ engines.DBManager = &Manager{}
