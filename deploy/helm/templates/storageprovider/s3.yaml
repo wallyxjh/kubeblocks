@@ -26,8 +26,13 @@ spec:
     provisioner: ru.yandex.s3.csi
     parameters:
       mounter: geesefs
+      {{ `{{ $forcePathStyle := index .Parameters "forcePathStyle" | default "false" }}` }}
+      {{ `{{ $addressingStyleOption := "" }}` }}
+      {{ `{{ if eq $forcePathStyle "false" }}` }}
+        {{ `{{ $addressingStyleOption = "--subdomain" }}` }}
+      {{ `{{ end }}` }}
       # you can set mount options here, for example limit memory cache size (recommended)
-      options: {{ `{{ printf "--memory-limit %s --read-ahead-large %s --dir-mode 0777 --file-mode 0666 %s --region %s" .Parameters.geesefsMemoryLimit .Parameters.geesefsReadAheadLarge .Parameters.mountOptions .Parameters.region }}` }}
+      options: {{ `{{ printf "--memory-limit %s --read-ahead-large %s --dir-mode 0777 --file-mode 0666 %s --region %s %s" .Parameters.geesefsMemoryLimit .Parameters.geesefsReadAheadLarge .Parameters.mountOptions .Parameters.region $addressingStyleOption }}` }}
       bucket: {{ `{{ index .Parameters "bucket" }}` }}
       csi.storage.k8s.io/provisioner-secret-name: {{ `{{ .CSIDriverSecretRef.Name }}` }}
       csi.storage.k8s.io/provisioner-secret-namespace: {{ `{{ .CSIDriverSecretRef.Namespace }}` }}
@@ -50,6 +55,7 @@ spec:
     root = {{ `{{ index .Parameters "bucket" }}` }}
     no_check_certificate = {{ `{{ index .Parameters "insecure" }}` }}
     chunk_size = 50Mi
+    force_path_style = {{ `{{ index .Parameters "forcePathStyle" | default "false" }}` }}
 
   parametersSchema:
     openAPIV3Schema:
@@ -85,6 +91,10 @@ spec:
           type: boolean
           default: false
           description: "Do not verify the server SSL certificate"
+        forcePathStyle:
+          type: boolean
+          default: false
+          description: "Use path-style instead of virtual-hosted-style S3 URLs"
 
       required:
         - bucket
